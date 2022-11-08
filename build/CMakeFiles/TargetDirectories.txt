@@ -1,0 +1,3 @@
+/home/jcdavis/FastKCF/build/CMakeFiles/rebuild_cache.dir
+/home/jcdavis/FastKCF/build/CMakeFiles/edit_cache.dir
+/home/jcdavis/FastKCF/build/CMakeFiles/kcfDetect.dir
