@@ -70,29 +70,29 @@ CMakeFiles/kcfDetect.dir/main.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/kcfDetect.dir/main.cpp.s"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/jcdavis/FastKCF/main.cpp -o CMakeFiles/kcfDetect.dir/main.cpp.s
 
-CMakeFiles/kcfDetect.dir/fastTrackerKCF.cpp.o: CMakeFiles/kcfDetect.dir/flags.make
-CMakeFiles/kcfDetect.dir/fastTrackerKCF.cpp.o: ../fastTrackerKCF.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/jcdavis/FastKCF/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/kcfDetect.dir/fastTrackerKCF.cpp.o"
-	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/kcfDetect.dir/fastTrackerKCF.cpp.o -c /home/jcdavis/FastKCF/fastTrackerKCF.cpp
+CMakeFiles/kcfDetect.dir/fastTracker.cpp.o: CMakeFiles/kcfDetect.dir/flags.make
+CMakeFiles/kcfDetect.dir/fastTracker.cpp.o: ../fastTracker.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/jcdavis/FastKCF/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/kcfDetect.dir/fastTracker.cpp.o"
+	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/kcfDetect.dir/fastTracker.cpp.o -c /home/jcdavis/FastKCF/fastTracker.cpp
 
-CMakeFiles/kcfDetect.dir/fastTrackerKCF.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/kcfDetect.dir/fastTrackerKCF.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/jcdavis/FastKCF/fastTrackerKCF.cpp > CMakeFiles/kcfDetect.dir/fastTrackerKCF.cpp.i
+CMakeFiles/kcfDetect.dir/fastTracker.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/kcfDetect.dir/fastTracker.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/jcdavis/FastKCF/fastTracker.cpp > CMakeFiles/kcfDetect.dir/fastTracker.cpp.i
 
-CMakeFiles/kcfDetect.dir/fastTrackerKCF.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/kcfDetect.dir/fastTrackerKCF.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/jcdavis/FastKCF/fastTrackerKCF.cpp -o CMakeFiles/kcfDetect.dir/fastTrackerKCF.cpp.s
+CMakeFiles/kcfDetect.dir/fastTracker.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/kcfDetect.dir/fastTracker.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/jcdavis/FastKCF/fastTracker.cpp -o CMakeFiles/kcfDetect.dir/fastTracker.cpp.s
 
 # Object files for target kcfDetect
 kcfDetect_OBJECTS = \
 "CMakeFiles/kcfDetect.dir/main.cpp.o" \
-"CMakeFiles/kcfDetect.dir/fastTrackerKCF.cpp.o"
+"CMakeFiles/kcfDetect.dir/fastTracker.cpp.o"
 
 # External object files for target kcfDetect
 kcfDetect_EXTERNAL_OBJECTS =
 
 kcfDetect: CMakeFiles/kcfDetect.dir/main.cpp.o
-kcfDetect: CMakeFiles/kcfDetect.dir/fastTrackerKCF.cpp.o
+kcfDetect: CMakeFiles/kcfDetect.dir/fastTracker.cpp.o
 kcfDetect: CMakeFiles/kcfDetect.dir/build.make
 kcfDetect: /usr/local/lib/libopencv_gapi.so.4.5.2
 kcfDetect: /usr/local/lib/libopencv_stitching.so.4.5.2
@@ -160,6 +160,8 @@ kcfDetect: /usr/local/lib/libopencv_imgproc.so.4.5.2
 kcfDetect: /usr/local/lib/libopencv_cudaarithm.so.4.5.2
 kcfDetect: /usr/local/lib/libopencv_core.so.4.5.2
 kcfDetect: /usr/local/lib/libopencv_cudev.so.4.5.2
+kcfDetect: /usr/lib/gcc/x86_64-linux-gnu/9/libgomp.so
+kcfDetect: /usr/lib/x86_64-linux-gnu/libpthread.so
 kcfDetect: CMakeFiles/kcfDetect.dir/link.txt
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/jcdavis/FastKCF/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Linking CXX executable kcfDetect"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/kcfDetect.dir/link.txt --verbose=$(VERBOSE)

@@ -9,8 +9,9 @@ namespace cv{
 //template <typename T>
 //using Ptr = std::shared_ptr<T>; 
 
-class TrackerKCF
+class FastTrackerKCF
 {
+public:
     struct Params {
         float detect_thresh;         //!<  detection confidence threshold
         float sigma;                 //!<  gaussian kernel bandwidth
@@ -24,8 +25,8 @@ class TrackerKCF
         bool compress_feature;        //!<  activate the pca method to compress the features
         int max_patch_size;           //!<  threshold for the ROI size
         int compressed_size;          //!<  feature size after compression
-        int desc_pca;        //!<  compressed descriptors of TrackerKCF::MODE
-        int desc_npca;       //!<  non-compressed descriptors of TrackerKCF::MODE
+        int desc_pca;        //!<  compressed descriptors of FastTrackerKCF::MODE
+        int desc_npca;       //!<  non-compressed descriptors of FastTrackerKCF::MODE
 
         Params();
     };
@@ -47,7 +48,7 @@ private:
     void inline updateProjectionMatrix(const Mat src, Mat & old_cov,Mat &  proj_matrix,float pca_rate, int compressed_sz,
                                        std::vector<Mat> & layers_pca,std::vector<Scalar> & average, Mat pca_data, Mat new_cov, Mat w, Mat u, Mat v);
     void inline compress(const Mat proj_matrix, const Mat src, Mat & dest, Mat & data, Mat & compressed) const;
-    bool getSubWindow(const Mat img, const Rect roi, Mat& feat, Mat& patch, TrackerKCF::MODE desc = GRAY) const;
+    bool getSubWindow(const Mat img, const Rect roi, Mat& feat, Mat& patch, FastTrackerKCF::MODE desc = GRAY) const;
     bool getSubWindow(const Mat img, const Rect roi, Mat& feat, void (*f)(const Mat, const Rect, Mat& )) const;
     void extractCN(Mat patch_data, Mat & cnFeatures) const;
     void denseGaussKernel(const float sigma, const Mat , const Mat y_data, Mat & k_data,
@@ -108,17 +109,20 @@ private:
 ///////
 
 public:
-    TrackerKCF(TrackerKCF::Params p);  // use ::create()
+    FastTrackerKCF(FastTrackerKCF::Params p);  // use ::create()
     
     Params params;
 
-    static Ptr<TrackerKCF> create();
+    static Ptr<FastTrackerKCF> create() {
+        FastTrackerKCF::Params p = FastTrackerKCF::Params{};
+        return makePtr<FastTrackerKCF>(p);
+    }
 
     void init(InputArray image, const Rect& boundingBox);
     bool update(InputArray image, Rect& boundingBox);
 
     typedef void (*FeatureExtractorCallbackFN)(const Mat, const Rect, Mat&);
-    virtual void setFeatureExtractor(FeatureExtractorCallbackFN callback, bool pca_func = false) = 0;
+    void setFeatureExtractor(FeatureExtractorCallbackFN callback, bool pca_func = false);
 };
 
 } /* namespace cv */

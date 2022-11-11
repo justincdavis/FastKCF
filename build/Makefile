@@ -123,32 +123,32 @@ kcfDetect/fast:
 	$(MAKE) -f CMakeFiles/kcfDetect.dir/build.make CMakeFiles/kcfDetect.dir/build
 .PHONY : kcfDetect/fast
 
-fastTrackerKCF.o: fastTrackerKCF.cpp.o
+fastTracker.o: fastTracker.cpp.o
 
-.PHONY : fastTrackerKCF.o
+.PHONY : fastTracker.o
 
 # target to build an object file
-fastTrackerKCF.cpp.o:
-	$(MAKE) -f CMakeFiles/kcfDetect.dir/build.make CMakeFiles/kcfDetect.dir/fastTrackerKCF.cpp.o
-.PHONY : fastTrackerKCF.cpp.o
+fastTracker.cpp.o:
+	$(MAKE) -f CMakeFiles/kcfDetect.dir/build.make CMakeFiles/kcfDetect.dir/fastTracker.cpp.o
+.PHONY : fastTracker.cpp.o
 
-fastTrackerKCF.i: fastTrackerKCF.cpp.i
+fastTracker.i: fastTracker.cpp.i
 
-.PHONY : fastTrackerKCF.i
+.PHONY : fastTracker.i
 
 # target to preprocess a source file
-fastTrackerKCF.cpp.i:
-	$(MAKE) -f CMakeFiles/kcfDetect.dir/build.make CMakeFiles/kcfDetect.dir/fastTrackerKCF.cpp.i
-.PHONY : fastTrackerKCF.cpp.i
+fastTracker.cpp.i:
+	$(MAKE) -f CMakeFiles/kcfDetect.dir/build.make CMakeFiles/kcfDetect.dir/fastTracker.cpp.i
+.PHONY : fastTracker.cpp.i
 
-fastTrackerKCF.s: fastTrackerKCF.cpp.s
+fastTracker.s: fastTracker.cpp.s
 
-.PHONY : fastTrackerKCF.s
+.PHONY : fastTracker.s
 
 # target to generate assembly for a file
-fastTrackerKCF.cpp.s:
-	$(MAKE) -f CMakeFiles/kcfDetect.dir/build.make CMakeFiles/kcfDetect.dir/fastTrackerKCF.cpp.s
-.PHONY : fastTrackerKCF.cpp.s
+fastTracker.cpp.s:
+	$(MAKE) -f CMakeFiles/kcfDetect.dir/build.make CMakeFiles/kcfDetect.dir/fastTracker.cpp.s
+.PHONY : fastTracker.cpp.s
 
 main.o: main.cpp.o
 
@@ -186,9 +186,9 @@ help:
 	@echo "... rebuild_cache"
 	@echo "... edit_cache"
 	@echo "... kcfDetect"
-	@echo "... fastTrackerKCF.o"
-	@echo "... fastTrackerKCF.i"
-	@echo "... fastTrackerKCF.s"
+	@echo "... fastTracker.o"
+	@echo "... fastTracker.i"
+	@echo "... fastTracker.s"
 	@echo "... main.o"
 	@echo "... main.i"
 	@echo "... main.s"

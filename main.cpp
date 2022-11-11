@@ -1,43 +1,135 @@
-#include "fastTracker.hpp"
-#include <iostream>
 #include <filesystem>
-namespace fs = std::filesystem;
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <vector>
+#include <chrono>
 
+#include <opencv2/videoio.hpp>
+#include <opencv2/tracking.hpp>
+
+#include "fastTracker.hpp"
+
+
+std::vector<int> getBoundingBox(std::string file){
+    std::ifstream truth(file);
+    std::string data;
+    if (truth.is_open()) { 
+        truth >> data; 
+    }
+
+    std::vector<int> boundingBox;
+    std::string delimiter = ",";
+    size_t pos = 0;
+    std::string token;
+    while ((pos = data.find(delimiter)) != std::string::npos) {
+        token = data.substr(0, pos);
+        boundingBox.push_back(std::stoi(token));
+        data.erase(0, pos + delimiter.length());
+    }
+    boundingBox.push_back(std::stoi(data));
+    return boundingBox;
+}
+    
 int main() {
-
-    std::string path = "/path/to/directory";
-    for (const auto & entry : fs::directory_iterator(path)){
-        if (entry.path().extension() == ".avi")
+    // create a filesystem instance
+    std::string path = "test/";
+    std::vector<std::filesystem::path> files;
+    std::cout << "Loading all files from " << path << std::endl;
+    for (const auto & entry : std::filesystem::recursive_directory_iterator(path)) {
+        // if the entry is a file and the extension is not .avi then do nothing
+        if (entry.path().extension() != ".avi") {
             continue;
+        }
+        files.push_back(entry.path());
+    }
+    std::cout << "Loaded " << files.size() << " files" << std::endl;
+    std::cout << "Sorting all files" << std::endl;
+    std::sort(files.begin(), files.end());
+    std::cout << "Sorted all " << files.size() << " files" << std::endl;
 
-        std::cout << "Processing: " << entry.path() << std::endl;
+    std::cout << "Processing all files" << std::endl;
+    // read every file within each subdirectory
+    for (const auto& path : files) {
+        std::cout << " Processing: " << path << std::endl;
 
-        auto tracker = TrackerKCF::create();
+        // create a file to store the results
+        std::ofstream output_file;
+        output_file.open("data/" + path.stem().string() + ".txt");
+
+        auto tracker = cv::TrackerKCF::create();
+        auto fast_tracker = cv::FastTrackerKCF::create(); // TODO ANDREW FIX THIS
 
         // find all videos
-        auto capture = cv::VideoCapture(entry.path().string());
+        auto capture = cv::VideoCapture(path.string(), cv::CAP_ANY);
+        std::cout << "  Capture has been opened: " << capture.isOpened() << "\n";
+        std::cout << "  Backend=" << capture.getBackendName() << "\n";
         int frame = 0;
         while (true) {
             capture.grab();
-            auto [err, img] = capture.retrieve();
-            if (!err) {
+            cv::Mat image;
+            capture.retrieve(image);
+            if (image.empty())
                 break;
-            }
 
             if (frame == 0) {
-                // prompt user to select target on the image
-                auto bb = cv::selectROI("Target selection", img);
-                tracker->init(img, bb);
+                // read a cv::Rect from a text file with the format x,y,w,h
+                // trim off the file and get the directory
+                auto dir = path.parent_path().string();
+                auto groundTruthFile = dir + "/groundtruth.txt";
+               
+                std::vector<int> boundingBox = getBoundingBox(groundTruthFile);
+
+                int x = boundingBox[0];
+                int y = boundingBox[1];
+                int w = boundingBox[2];
+                int h = boundingBox[3];
+                int boxSize = w * h;
+
+                output_file << "BBOX_SIZE:" << boxSize << "\n";
+
+                cv::Rect rect(x, y, w, h);
+
+                auto start = std::chrono::high_resolution_clock::now();
+                tracker->init(image, rect);
+                auto stop = std::chrono::high_resolution_clock::now();
+                auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
+                output_file << "STD_INIT_TIME:" << duration.count() << "\n";
+
+                start = std::chrono::high_resolution_clock::now();
+                fast_tracker->init(image, rect);
+                stop = std::chrono::high_resolution_clock::now();
+                duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
+                output_file << "FAST_INIT_TIME:" << duration.count() << "\n";
+
             } else {
                 cv::Rect bb;
-                bool success = tracker->update(img, bb);
-                if (!success) {
-                    std::cout << "Failed to update tracking for frame #" << frame << "\n";
+                cv::Rect bb_fast;
+
+                auto start = std::chrono::high_resolution_clock::now();
+                bool std_success = tracker->update(image, bb);
+                auto stop = std::chrono::high_resolution_clock::now();
+                auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
+                output_file << "STD_UPDATE_TIME: " << duration.count() << "\n";
+
+                start = std::chrono::high_resolution_clock::now();
+                bool fast_success = fast_tracker->update(image, bb_fast);
+                stop = std::chrono::high_resolution_clock::now();
+                duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
+                output_file << "FAST_UPDATE_TIME: " << duration.count() << "\n";
+
+                // TODO
+                // compare the bounding boxes
+
+                if (!std_success) {
+                    break;
                 }
             }
 
             ++frame;
         }
+        std::cout << "  Tracked: # " << frame << " frames\n";
+        output_file.close();
     
     }
     return 0;

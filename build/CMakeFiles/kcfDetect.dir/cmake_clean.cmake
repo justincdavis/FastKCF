@@ -1,5 +1,5 @@
 file(REMOVE_RECURSE
-  "CMakeFiles/kcfDetect.dir/fastTrackerKCF.cpp.o"
+  "CMakeFiles/kcfDetect.dir/fastTracker.cpp.o"
   "CMakeFiles/kcfDetect.dir/main.cpp.o"
   "kcfDetect"
   "kcfDetect.pdb"

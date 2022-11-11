@@ -16,7 +16,7 @@ namespace cv {
 //    return std::make_shared<T>();
 //}
 
-  TrackerKCF::TrackerKCF(TrackerKCF::Params p) :
+  FastTrackerKCF::FastTrackerKCF(FastTrackerKCF::Params p) :
     params(p)
   {
     resizeImage = false;
@@ -31,7 +31,7 @@ namespace cv {
    * - creating a gaussian response for the training ground-truth
    * - perform FFT to the gaussian response
    */
-  void TrackerKCF::init(InputArray image, const Rect& boundingBox)
+  void FastTrackerKCF::init(InputArray image, const Rect& boundingBox)
   {
     frame=0;
     roi.x = cvRound(boundingBox.x);
@@ -84,7 +84,7 @@ namespace cv {
       params.desc_pca &= ~(CN);
       params.desc_npca &= ~(CN);
     }
-    //model = makePtr<TrackerKCFModel>();
+    //model = makePtr<FastTrackerKCFModel>();
 
     // record the non-compressed descriptors
     if((params.desc_npca & GRAY) == GRAY)descriptors_npca.push_back(GRAY);
@@ -118,7 +118,7 @@ namespace cv {
   /*
    * Main part of the KCF algorithm
    */
-  bool TrackerKCF::update(InputArray image, Rect& boundingBoxResult)
+  bool FastTrackerKCF::update(InputArray image, Rect& boundingBoxResult)
   {
     double minVal, maxVal;	// min-max response
     Point minLoc,maxLoc;	// min-max location
@@ -200,6 +200,9 @@ namespace cv {
       roi.y+=(maxLoc.y-roi.height/2+1);
     }
 
+    // #TEMP
+    //return true;
+
     // update the bounding box
     Rect2d boundingBox;
     boundingBox.x=(resizeImage?roi.x*2:roi.x)+(resizeImage?roi.width*2:roi.width)/4;
@@ -228,6 +231,9 @@ namespace cv {
     }
     if(features_pca.size()>0)merge(features_pca,X[0]);
 
+    // #TEMP
+    //return true;
+
     //update the training data
     if(frame==0){
       Z[0] = X[0].clone();
@@ -236,6 +242,9 @@ namespace cv {
       Z[0]=(1.0-params.interp_factor)*Z[0]+params.interp_factor*X[0];
       Z[1]=(1.0-params.interp_factor)*Z[1]+params.interp_factor*X[1];
     }
+
+    // #TEMP
+    // AFTER MEEE
 
     if(params.desc_pca !=0 || use_custom_extractor_pca){
       // initialize the vector of Mat variables
@@ -248,6 +257,12 @@ namespace cv {
       updateProjectionMatrix(Z[0],old_cov_mtx,proj_mtx,params.pca_learning_rate,params.compressed_size,layers_pca_data,average_data,data_pca, new_covar,w_data,u_data,vt_data);
       compress(proj_mtx,X[0],X[0],data_temp,compress_data);
     }
+
+    // #TEMP
+    return true;
+
+    // #
+    // BEFORE MEEEE
 
     // merge all features
     if(features_npca.size()==0)
@@ -265,6 +280,9 @@ namespace cv {
       vxyf.resize(vyf.size());
       new_alphaf=Mat_<Vec2f >(yf.rows, yf.cols);
     }
+
+    // #TEMP
+    // BORKEN BEFORE HERE
 
     // Kernel Regularized Least-Squares, calculate alphas
     denseGaussKernel(params.sigma,x,x,k,layers,vxf,vyf,vxyf,xy_data,xyf_data);
@@ -318,7 +336,7 @@ namespace cv {
   /*
    * hann window filter
    */
-  void TrackerKCF::createHanningWindow(OutputArray dest, const cv::Size winSize, const int type) const {
+  void FastTrackerKCF::createHanningWindow(OutputArray dest, const cv::Size winSize, const int type) const {
       CV_Assert( type == CV_32FC1 || type == CV_64FC1 );
 
       dest.create(winSize, type);
@@ -357,11 +375,11 @@ namespace cv {
   /*
    * simplification of fourier transform function in opencv
    */
-  void inline TrackerKCF::fft2(const Mat src, Mat & dest) const {
+  void inline FastTrackerKCF::fft2(const Mat src, Mat & dest) const {
     dft(src,dest,DFT_COMPLEX_OUTPUT);
   }
 
-  void inline TrackerKCF::fft2(const Mat src, std::vector<Mat> & dest, std::vector<Mat> & layers_data) const {
+  void inline FastTrackerKCF::fft2(const Mat src, std::vector<Mat> & dest, std::vector<Mat> & layers_data) const {
     split(src, layers_data);
 
     for(int i=0;i<src.channels();i++){
@@ -372,14 +390,14 @@ namespace cv {
   /*
    * simplification of inverse fourier transform function in opencv
    */
-  void inline TrackerKCF::ifft2(const Mat src, Mat & dest) const {
+  void inline FastTrackerKCF::ifft2(const Mat src, Mat & dest) const {
     idft(src,dest,DFT_SCALE+DFT_REAL_OUTPUT);
   }
 
   /*
    * Point-wise multiplication of two Multichannel Mat data
    */
-  void inline TrackerKCF::pixelWiseMult(const std::vector<Mat> src1, const std::vector<Mat>  src2, std::vector<Mat>  & dest, const int flags, const bool conjB) const {
+  void inline FastTrackerKCF::pixelWiseMult(const std::vector<Mat> src1, const std::vector<Mat>  src2, std::vector<Mat>  & dest, const int flags, const bool conjB) const {
     for(unsigned i=0;i<src1.size();i++){
       mulSpectrums(src1[i], src2[i], dest[i],flags,conjB);
     }
@@ -388,7 +406,7 @@ namespace cv {
   /*
    * Combines all channels in a multi-channels Mat data into a single channel
    */
-  void inline TrackerKCF::sumChannels(std::vector<Mat> src, Mat & dest) const {
+  void inline FastTrackerKCF::sumChannels(std::vector<Mat> src, Mat & dest) const {
     dest=src[0].clone();
     for(unsigned i=1;i<src.size();i++){
       dest+=src[i];
@@ -398,7 +416,7 @@ namespace cv {
   /*
    * obtains the projection matrix using PCA
    */
-  void inline TrackerKCF::updateProjectionMatrix(const Mat src, Mat & old_cov,Mat &  proj_matrix, float pca_rate, int compressed_sz,
+  void inline FastTrackerKCF::updateProjectionMatrix(const Mat src, Mat & old_cov,Mat &  proj_matrix, float pca_rate, int compressed_sz,
                                                      std::vector<Mat> & layers_pca,std::vector<Scalar> & average, Mat pca_data, Mat new_cov, Mat w, Mat u, Mat vt) {
     CV_Assert(compressed_sz<=src.channels());
 
@@ -427,7 +445,7 @@ namespace cv {
   /*
    * compress the features
    */
-  void inline TrackerKCF::compress(const Mat proj_matrix, const Mat src, Mat & dest, Mat & data, Mat & compressed) const {
+  void inline FastTrackerKCF::compress(const Mat proj_matrix, const Mat src, Mat & dest, Mat & data, Mat & compressed) const {
     data=src.reshape(1,src.rows*src.cols);
     compressed=data*proj_matrix;
     dest=compressed.reshape(proj_matrix.cols,src.rows).clone();
@@ -436,7 +454,7 @@ namespace cv {
   /*
    * obtain the patch and apply hann window filter to it
    */
-  bool TrackerKCF::getSubWindow(const Mat img, const Rect _roi, Mat& feat, Mat& patch, TrackerKCF::MODE desc) const {
+  bool FastTrackerKCF::getSubWindow(const Mat img, const Rect _roi, Mat& feat, Mat& patch, FastTrackerKCF::MODE desc) const {
 
     Rect region=_roi;
 
@@ -494,7 +512,7 @@ namespace cv {
   /*
    * get feature using external function
    */
-  bool TrackerKCF::getSubWindow(const Mat img, const Rect _roi, Mat& feat, void (*f)(const Mat, const Rect, Mat& )) const{
+  bool FastTrackerKCF::getSubWindow(const Mat img, const Rect _roi, Mat& feat, void (*f)(const Mat, const Rect, Mat& )) const{
 
     // return false if roi is outside the image
     if((_roi.x+_roi.width<0)
@@ -525,7 +543,7 @@ namespace cv {
 
   /* Convert BGR to ColorNames
    */
-  void TrackerKCF::extractCN(Mat patch_data, Mat & cnFeatures) const {
+  void FastTrackerKCF::extractCN(Mat patch_data, Mat & cnFeatures) const {
     Vec3b & pixel = patch_data.at<Vec3b>(0,0);
     unsigned index;
 
@@ -549,7 +567,7 @@ namespace cv {
   /*
    *  dense gauss kernel function
    */
-  void TrackerKCF::denseGaussKernel(const float sigma, const Mat x_data, const Mat y_data, Mat & k_data,
+  void FastTrackerKCF::denseGaussKernel(const float sigma, const Mat x_data, const Mat y_data, Mat & k_data,
                                         std::vector<Mat> & layers_data,std::vector<Mat> & xf_data,std::vector<Mat> & yf_data, std::vector<Mat> xyf_v, Mat xy, Mat xyf ) const {
     double normX, normY;
 
@@ -591,7 +609,7 @@ namespace cv {
    * http://stackoverflow.com/questions/10420454/shift-like-matlab-function-rows-or-columns-of-a-matrix-in-opencv
    */
   // circular shift one row from up to down
-  void TrackerKCF::shiftRows(Mat& mat) const {
+  void FastTrackerKCF::shiftRows(Mat& mat) const {
 
       Mat temp;
       Mat m;
@@ -607,7 +625,7 @@ namespace cv {
   }
 
   // circular shift n rows from up to down if n > 0, -n rows from down to up if n < 0
-  void TrackerKCF::shiftRows(Mat& mat, int n) const {
+  void FastTrackerKCF::shiftRows(Mat& mat, int n) const {
       if( n < 0 ) {
         n = -n;
         flip(mat,mat,0);
@@ -623,7 +641,7 @@ namespace cv {
   }
 
   //circular shift n columns from left to right if n > 0, -n columns from right to left if n < 0
-  void TrackerKCF::shiftCols(Mat& mat, int n) const {
+  void FastTrackerKCF::shiftCols(Mat& mat, int n) const {
       if(n < 0){
         n = -n;
         flip(mat,mat,1);
@@ -641,7 +659,7 @@ namespace cv {
   /*
    * calculate the detection response
    */
-  void TrackerKCF::calcResponse(const Mat alphaf_data, const Mat kf_data, Mat & response_data, Mat & spec_data) const {
+  void FastTrackerKCF::calcResponse(const Mat alphaf_data, const Mat kf_data, Mat & response_data, Mat & spec_data) const {
     //alpha f--> 2channels ; k --> 1 channel;
     mulSpectrums(alphaf_data,kf_data,spec_data,0,false);
     ifft2(spec_data,response_data);
@@ -650,7 +668,7 @@ namespace cv {
   /*
    * calculate the detection response for splitted form
    */
-  void TrackerKCF::calcResponse(const Mat alphaf_data, const Mat _alphaf_den, const Mat kf_data, Mat & response_data, Mat & spec_data, Mat & spec2_data) const {
+  void FastTrackerKCF::calcResponse(const Mat alphaf_data, const Mat _alphaf_den, const Mat kf_data, Mat & response_data, Mat & spec_data, Mat & spec2_data) const {
 
     mulSpectrums(alphaf_data,kf_data,spec_data,0,false);
 
@@ -669,7 +687,7 @@ namespace cv {
     ifft2(spec2_data,response_data);
   }
 
-  void TrackerKCF::setFeatureExtractor(void (*f)(const Mat, const Rect, Mat&), bool pca_func){
+  void FastTrackerKCF::setFeatureExtractor(void (*f)(const Mat, const Rect, Mat&), bool pca_func){
     if(pca_func){
       extractor_pca.push_back(f);
       use_custom_extractor_pca = true;
@@ -680,24 +698,24 @@ namespace cv {
   }
   /*----------------------------------------------------------------------*/
 
-TrackerKCF::Params::Params()
+FastTrackerKCF::Params::Params()
 {
-      detect_thresh = 0.5f;
-      sigma=0.2f;
-      lambda=0.0001f;
-      interp_factor=0.075f;
-      output_sigma_factor=1.0f / 16.0f;
-      resize=true;
-      max_patch_size=80*80;
-      split_coeff=true;
-      wrap_kernel=false;
-      desc_npca = GRAY;
-      desc_pca = CN;
+  detect_thresh = 0.5f;
+  sigma=0.2f;
+  lambda=0.0001f;
+  interp_factor=0.075f;
+  output_sigma_factor=1.0f / 16.0f;
+  resize=true;
+  max_patch_size=80*80;
+  split_coeff=true;
+  wrap_kernel=false;
+  desc_npca = GRAY;
+  desc_pca = CN;
 
-      //feature compression
-      compress_feature=true;
-      compressed_size=2;
-      pca_learning_rate=0.15f;
+  //feature compression
+  compress_feature=true;
+  compressed_size=2;
+  pca_learning_rate=0.15f;
 }
 
 } // namespace
