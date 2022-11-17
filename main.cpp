@@ -119,7 +119,10 @@ int main() {
                 output_file << "FAST_UPDATE_TIME: " << duration.count() << "\n";
 
                 // TODO
-                // compare the bounding boxes
+                // compare the bounding boxes  
+                if (bb.x != bb_fast.y || bb.y != bb_fast.y || bb.height != bb_fast.height || bb.width != bb_fast.width){
+                    std::cout << "BOUNDING BOXES NOT EQUAL" << std::endl;
+                }
 
                 if (!std_success) {
                     break;
