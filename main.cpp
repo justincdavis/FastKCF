@@ -88,16 +88,17 @@ int main() {
 
                 output_file << "BBOX_SIZE:" << boxSize << "\n";
 
-                cv::Rect rect(x, y, w, h);
+                cv::Rect rect1(x, y, w, h);
+                cv::Rect rect2(x, y, w, h);
 
                 auto start = std::chrono::high_resolution_clock::now();
-                tracker->init(image, rect);
+                tracker->init(image, rect1);
                 auto stop = std::chrono::high_resolution_clock::now();
                 auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
                 output_file << "STD_INIT_TIME:" << duration.count() << "\n";
 
                 start = std::chrono::high_resolution_clock::now();
-                fast_tracker->init(image, rect);
+                fast_tracker->init(image, rect2);
                 stop = std::chrono::high_resolution_clock::now();
                 duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
                 output_file << "FAST_INIT_TIME:" << duration.count() << "\n";
@@ -118,14 +119,19 @@ int main() {
                 duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
                 output_file << "FAST_UPDATE_TIME: " << duration.count() << "\n";
 
-                // TODO
-                // compare the bounding boxes  
-                if (bb.x != bb_fast.y || bb.y != bb_fast.y || bb.height != bb_fast.height || bb.width != bb_fast.width){
-                    std::cout << "BOUNDING BOXES NOT EQUAL" << std::endl;
-                }
-
                 if (!std_success) {
                     break;
+                }
+
+                // TODO
+                // compare the bounding boxes  
+                std::cout << bb.x << bb.y << bb.height << bb.width << std::endl;
+                std::cout << bb_fast.x << bb_fast.y << bb_fast.height << bb_fast.width << std::endl;
+                if (bb.x == bb_fast.x && bb.y == bb_fast.y && bb.height == bb_fast.height && bb.width == bb_fast.width){
+                    std::cout << "success" << std::endl;
+                }
+                else{
+                    std::cout << "BOUNDING BOXES NOT EQUAL" << std::endl;
                 }
             }
 
