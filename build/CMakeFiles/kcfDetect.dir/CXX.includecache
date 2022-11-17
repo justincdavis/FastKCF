@@ -25,26 +25,8 @@ opencv2/core.hpp
 /home/jcdavis/FastKCF/opencv2/core.hpp
 memory
 -
-
-/home/jcdavis/FastKCF/main.cpp
-filesystem
--
 iostream
 -
-fstream
--
-string
--
-vector
--
-chrono
--
-opencv2/videoio.hpp
--
-opencv2/tracking.hpp
--
-fastTracker.hpp
-/home/jcdavis/FastKCF/fastTracker.hpp
 
 /usr/local/include/opencv4/opencv2/core.hpp
 opencv2/core/cvdef.h
@@ -373,20 +355,4 @@ opencv2/imgproc.hpp
 /usr/local/include/opencv4/opencv2/imgproc/opencv2/imgproc.hpp
 
 /usr/local/include/opencv4/opencv2/opencv_modules.hpp
-
-/usr/local/include/opencv4/opencv2/tracking.hpp
-opencv2/core.hpp
-/usr/local/include/opencv4/opencv2/opencv2/core.hpp
-opencv2/video/tracking.hpp
-/usr/local/include/opencv4/opencv2/opencv2/video/tracking.hpp
-
-/usr/local/include/opencv4/opencv2/video/tracking.hpp
-opencv2/core.hpp
-/usr/local/include/opencv4/opencv2/video/opencv2/core.hpp
-opencv2/imgproc.hpp
-/usr/local/include/opencv4/opencv2/video/opencv2/imgproc.hpp
-
-/usr/local/include/opencv4/opencv2/videoio.hpp
-opencv2/core.hpp
-/usr/local/include/opencv4/opencv2/opencv2/core.hpp
 
