@@ -58,13 +58,16 @@ namespace cv {
     roi.width*=2;
     roi.height*=2;
 
+    //std::cout << "Creating hann window" << std::endl;
     // initialize the hann window filter
     createHanningWindow(hann, roi.size(), CV_32F);
 
+    //std::cout << "Running merge for 10 hann windows" << std::endl;
     // hann window filter for CN feature
     Mat _layer[] = {hann, hann, hann, hann, hann, hann, hann, hann, hann, hann};
     merge(_layer, 10, hann_cn);
 
+    //std::cout << "Creating the gaussian response" << std::endl;
     // create gaussian response
     y=Mat::zeros((int)roi.height,(int)roi.width,CV_32F);
     for(int i=0;i<int(roi.height);i++){
@@ -74,24 +77,29 @@ namespace cv {
       }
     }
 
+    //std::cout << "Run cv::exp" << std::endl;
     y*=(float)output_sigma;
     cv::exp(y,y);
 
+    //std::cout << "Perform fft2" << std::endl;
     // perform fourier transfor to the gaussian response
     fft2(y,yf);
 
+    //std::cout << "Disable ColorNames for grayscale images" << std::endl;
     if (image.channels() == 1) { // disable CN for grayscale images
       params.desc_pca &= ~(CN);
       params.desc_npca &= ~(CN);
     }
     //model = makePtr<FastTrackerKCFModel>();
 
+    //std::cout << "Record the non-compressed descriptors" << std::endl;
     // record the non-compressed descriptors
     if((params.desc_npca & GRAY) == GRAY)descriptors_npca.push_back(GRAY);
     if((params.desc_npca & CN) == CN)descriptors_npca.push_back(CN);
     if(use_custom_extractor_npca)descriptors_npca.push_back(CUSTOM);
     features_npca.resize(descriptors_npca.size());
 
+    //std::cout << "Record the compressed descriptors" << std::endl;
     // record the compressed descriptors
     if((params.desc_pca & GRAY) == GRAY)descriptors_pca.push_back(GRAY);
     if((params.desc_pca & CN) == CN)descriptors_pca.push_back(CN);
@@ -108,6 +116,7 @@ namespace cv {
       || use_custom_extractor_npca
     );
 
+    //std::cout << "Ensure the roi has intersection with the image" << std::endl;
     // ensure roi has intersection with the image
     Rect2d image_roi(0, 0,
                      image.cols() / (resizeImage ? 2 : 1),
@@ -430,6 +439,12 @@ namespace cv {
     // calc covariance matrix
     merge(layers_pca,pca_data);
     pca_data=pca_data.reshape(1,src.rows*src.cols);
+    
+    new_cov=1.0/(float)(src.rows*src.cols-1)*(pca_data.t()*pca_data);
+    if(old_cov.rows==0)old_cov=new_cov.clone();
+
+    // calc PCA
+    SVD::compute((1.0-pca_rate)*old_cov+pca_rate*new_cov, w, u, vt);
 
     // extract the projection matrix
     proj_matrix=u(Rect(0,0,compressed_sz,src.channels())).clone();
