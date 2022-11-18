@@ -148,6 +148,7 @@ namespace cv {
     // detection part
     if(frame>0){
 
+      // TODO - we can switch this to run the subwindow extraction in parallel
       // extract and pre-process the patch
       // get non compressed descriptors
       for(unsigned i=0;i<descriptors_npca.size()-extractor_npca.size();i++){
@@ -220,6 +221,7 @@ namespace cv {
     boundingBox.width = (resizeImage?roi.width*2:roi.width)/2;
     boundingBox.height = (resizeImage?roi.height*2:roi.height)/2;
 
+    // TODO - we can switch this to run the subwindow extraction in parallel
     // extract the patch for learning purpose
     // get non compressed descriptors
     for(unsigned i=0;i<descriptors_npca.size()-extractor_npca.size();i++){
@@ -384,7 +386,7 @@ namespace cv {
     ZoneScopedN("ftmp fft2");
     split(src, layers_data);
 
-     // #pragma omp parallel for private(dest)
+    #pragma omp parallel for
     for(int i=0;i<src.channels();i++){
       dft(layers_data[i],dest[i],DFT_COMPLEX_OUTPUT);
     }
@@ -551,7 +553,7 @@ namespace cv {
     Mat hann_win;
     std::vector<Mat> _layers;
 
-     // #pragma omp parallel for 
+    #pragma omp parallel for 
     for(int i=0;i<feat.channels();i++)
       _layers.push_back(hann);
 
