@@ -4,11 +4,17 @@
 #include <string>
 #include <vector>
 #include <chrono>
+#include <string_view>
 
 #include <opencv2/videoio.hpp>
 #include <opencv2/tracking.hpp>
 
 #include "fastTracker.hpp"
+#include "fastTrackerMP.hpp"
+#include "fastTrackerCUDA.hpp"
+#include "fastTrackerMPCUDA.hpp"
+
+#include "Tracy.hpp"
 
 
 std::vector<int> getBoundingBox(std::string file){
@@ -30,7 +36,46 @@ std::vector<int> getBoundingBox(std::string file){
     boundingBox.push_back(std::stoi(data));
     return boundingBox;
 }
-    
+
+#define TIME_NOW std::chrono::high_resolution_clock::now()
+
+template <typename T>
+std::pair<bool, cv::Rect> updateTracker(std::string_view name, T& tracker, std::ostream& output, int frame, const cv::Mat& img, cv::Rect gtBox) {
+    bool success = true;
+    cv::Rect resultBox = gtBox;
+    if (frame == 0) {
+        auto start = TIME_NOW;
+        tracker->init(img, gtBox);
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(TIME_NOW - start).count();
+        output << name << "_INIT: " << duration << "\n";
+    } else {
+        auto start = TIME_NOW;
+        success = tracker->update(img, resultBox);
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(TIME_NOW - start).count();
+        output << name << "_UPDATE: " << duration << "\n";
+    }
+
+    return std::make_pair(success, resultBox);
+}
+
+#undef TIME_NOW
+
+void printCVRect(std::ostream& output, const cv::Rect& rect) {
+    output << rect.x << "," << rect.y << "," << rect.width << "," << rect.height << "\n";
+}
+
+bool checkBoxesEqual(std::string name, const cv::Rect& a, const cv::Rect& b, int frame) {
+    bool equal = a.x == b.x && a.y == b.y && a.width == b.width && a.height == b.height;
+    if (!equal) {
+        std::cout << "  Bounding boxes are not equal for frame " << frame << std::endl;
+        std::cout << "  STD: ";
+        printCVRect(std::cout, a);
+        std::cout << "  " << name << ": ";
+        printCVRect(std::cout, b);
+    }
+    return equal;
+}
+
 int main() {
     // create a filesystem instance
     std::string path = "test/";
@@ -58,7 +103,10 @@ int main() {
         output_file.open("data/" + path.stem().string() + ".txt");
 
         auto tracker = cv::TrackerKCF::create();
-        auto fast_tracker = cv::FastTrackerKCF::create(); // TODO ANDREW FIX THIS
+        auto fast_tracker = cv::FastTracker::create();
+        auto fast_tracker_mp = cv::FastTrackerMP::create();
+        auto fast_tracker_cuda = cv::FastTrackerCUDA::create();
+        auto fast_tracker_mp_cuda = cv::FastTrackerMPCUDA::create();
 
         // find all videos
         auto capture = cv::VideoCapture(path.string(), cv::CAP_ANY);
@@ -88,55 +136,45 @@ int main() {
 
                 output_file << "BBOX_SIZE:" << boxSize << "\n";
 
-                cv::Rect rect1(x, y, w, h);
-                cv::Rect rect2(x, y, w, h);
-
-                auto start = std::chrono::high_resolution_clock::now();
-                tracker->init(image, rect1);
-                auto stop = std::chrono::high_resolution_clock::now();
-                auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
-                output_file << "STD_INIT_TIME:" << duration.count() << "\n";
-
-                start = std::chrono::high_resolution_clock::now();
-                fast_tracker->init(image, rect2);
-                stop = std::chrono::high_resolution_clock::now();
-                duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
-                output_file << "FAST_INIT_TIME:" << duration.count() << "\n";
-
+                cv::Rect rect(x, y, w, h);
+                
+                updateTracker("STD", tracker, output_file, frame, image, rect);
+                updateTracker("FAST", fast_tracker, output_file, frame, image, rect);
+                updateTracker("FAST_MP", fast_tracker_mp, output_file, frame, image, rect);
+                // updateTracker("FAST_CUDA", fast_tracker_cuda, output_file, frame, image, rect);
+                // updateTracker("FAST_MP_CUDA", fast_tracker_mp_cuda, output_file, frame, image, rect);
             } else {
-                cv::Rect bb;
-                cv::Rect bb_fast;
-
-                auto start = std::chrono::high_resolution_clock::now();
-                bool std_success = tracker->update(image, bb);
-                auto stop = std::chrono::high_resolution_clock::now();
-                auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
-                output_file << "STD_UPDATE_TIME: " << duration.count() << "\n";
-
-                start = std::chrono::high_resolution_clock::now();
-                bool fast_success = fast_tracker->update(image, bb_fast);
-                stop = std::chrono::high_resolution_clock::now();
-                duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
-                output_file << "FAST_UPDATE_TIME: " << duration.count() << "\n";
-
-                if (!std_success) {
+                cv::Rect dummy{ 0,0,0,0 };
+                auto [success, bb] = updateTracker("STD", tracker, output_file, frame, image, dummy);
+                auto [success_bb, bb_fast] = updateTracker("FAST", fast_tracker, output_file, frame, image, dummy);
+                auto [success_bb_mp, bb_fast_mp] = updateTracker("FAST_MP", fast_tracker_mp, output_file, frame, image, dummy);
+                // auto [success_bb_cuda, bb_fast_cuda] = updateTracker("FAST_CUDA", fast_tracker_cuda, output_file, frame, image, dummy);
+                // auto [success_bb_mp_cuda, bb_fast_mp_cuda] = updateTracker("FAST_MP_CUDA", fast_tracker_mp_cuda, output_file, frame, image, dummy);
+                
+                if (!success) {
                     break;
                 }
 
-                // TODO
-                // compare the bounding boxes  
-                std::cout << bb.x << bb.y << bb.height << bb.width << std::endl;
-                std::cout << bb_fast.x << bb_fast.y << bb_fast.height << bb_fast.width << std::endl;
-                if (bb.x == bb_fast.x && bb.y == bb_fast.y && bb.height == bb_fast.height && bb.width == bb_fast.width){
-                    std::cout << "success" << std::endl;
+                // compare the bounding boxes
+                if (!checkBoxesEqual("FAST", bb, bb_fast, frame)) {
+                    break;
                 }
-                else{
-                    std::cout << "BOUNDING BOXES NOT EQUAL" << std::endl;
+                if (!checkBoxesEqual("FAST_MP", bb, bb_fast_mp, frame)) {
+                    break;
                 }
+                // if (!checkBoxesEqual("FAST_CUDA", bb, bb_fast_cuda, frame)) {
+                //     break;
+                // }
+                // if (!checkBoxesEqual("FAST_MP_CUDA", bb, bb_fast_mp_cuda, frame)) {
+                //     break;
+                // }
             }
 
             ++frame;
         }
+
+        FrameMark;
+
         std::cout << "  Tracked: # " << frame << " frames\n";
         output_file.close();
     

@@ -123,6 +123,33 @@ kcfDetect/fast:
 	$(MAKE) -f CMakeFiles/kcfDetect.dir/build.make CMakeFiles/kcfDetect.dir/build
 .PHONY : kcfDetect/fast
 
+extern/tracy/public/TracyClient.o: extern/tracy/public/TracyClient.cpp.o
+
+.PHONY : extern/tracy/public/TracyClient.o
+
+# target to build an object file
+extern/tracy/public/TracyClient.cpp.o:
+	$(MAKE) -f CMakeFiles/kcfDetect.dir/build.make CMakeFiles/kcfDetect.dir/extern/tracy/public/TracyClient.cpp.o
+.PHONY : extern/tracy/public/TracyClient.cpp.o
+
+extern/tracy/public/TracyClient.i: extern/tracy/public/TracyClient.cpp.i
+
+.PHONY : extern/tracy/public/TracyClient.i
+
+# target to preprocess a source file
+extern/tracy/public/TracyClient.cpp.i:
+	$(MAKE) -f CMakeFiles/kcfDetect.dir/build.make CMakeFiles/kcfDetect.dir/extern/tracy/public/TracyClient.cpp.i
+.PHONY : extern/tracy/public/TracyClient.cpp.i
+
+extern/tracy/public/TracyClient.s: extern/tracy/public/TracyClient.cpp.s
+
+.PHONY : extern/tracy/public/TracyClient.s
+
+# target to generate assembly for a file
+extern/tracy/public/TracyClient.cpp.s:
+	$(MAKE) -f CMakeFiles/kcfDetect.dir/build.make CMakeFiles/kcfDetect.dir/extern/tracy/public/TracyClient.cpp.s
+.PHONY : extern/tracy/public/TracyClient.cpp.s
+
 fastTracker.o: fastTracker.cpp.o
 
 .PHONY : fastTracker.o
@@ -149,6 +176,87 @@ fastTracker.s: fastTracker.cpp.s
 fastTracker.cpp.s:
 	$(MAKE) -f CMakeFiles/kcfDetect.dir/build.make CMakeFiles/kcfDetect.dir/fastTracker.cpp.s
 .PHONY : fastTracker.cpp.s
+
+fastTrackerCUDA.o: fastTrackerCUDA.cpp.o
+
+.PHONY : fastTrackerCUDA.o
+
+# target to build an object file
+fastTrackerCUDA.cpp.o:
+	$(MAKE) -f CMakeFiles/kcfDetect.dir/build.make CMakeFiles/kcfDetect.dir/fastTrackerCUDA.cpp.o
+.PHONY : fastTrackerCUDA.cpp.o
+
+fastTrackerCUDA.i: fastTrackerCUDA.cpp.i
+
+.PHONY : fastTrackerCUDA.i
+
+# target to preprocess a source file
+fastTrackerCUDA.cpp.i:
+	$(MAKE) -f CMakeFiles/kcfDetect.dir/build.make CMakeFiles/kcfDetect.dir/fastTrackerCUDA.cpp.i
+.PHONY : fastTrackerCUDA.cpp.i
+
+fastTrackerCUDA.s: fastTrackerCUDA.cpp.s
+
+.PHONY : fastTrackerCUDA.s
+
+# target to generate assembly for a file
+fastTrackerCUDA.cpp.s:
+	$(MAKE) -f CMakeFiles/kcfDetect.dir/build.make CMakeFiles/kcfDetect.dir/fastTrackerCUDA.cpp.s
+.PHONY : fastTrackerCUDA.cpp.s
+
+fastTrackerMP.o: fastTrackerMP.cpp.o
+
+.PHONY : fastTrackerMP.o
+
+# target to build an object file
+fastTrackerMP.cpp.o:
+	$(MAKE) -f CMakeFiles/kcfDetect.dir/build.make CMakeFiles/kcfDetect.dir/fastTrackerMP.cpp.o
+.PHONY : fastTrackerMP.cpp.o
+
+fastTrackerMP.i: fastTrackerMP.cpp.i
+
+.PHONY : fastTrackerMP.i
+
+# target to preprocess a source file
+fastTrackerMP.cpp.i:
+	$(MAKE) -f CMakeFiles/kcfDetect.dir/build.make CMakeFiles/kcfDetect.dir/fastTrackerMP.cpp.i
+.PHONY : fastTrackerMP.cpp.i
+
+fastTrackerMP.s: fastTrackerMP.cpp.s
+
+.PHONY : fastTrackerMP.s
+
+# target to generate assembly for a file
+fastTrackerMP.cpp.s:
+	$(MAKE) -f CMakeFiles/kcfDetect.dir/build.make CMakeFiles/kcfDetect.dir/fastTrackerMP.cpp.s
+.PHONY : fastTrackerMP.cpp.s
+
+fastTrackerMPCUDA.o: fastTrackerMPCUDA.cpp.o
+
+.PHONY : fastTrackerMPCUDA.o
+
+# target to build an object file
+fastTrackerMPCUDA.cpp.o:
+	$(MAKE) -f CMakeFiles/kcfDetect.dir/build.make CMakeFiles/kcfDetect.dir/fastTrackerMPCUDA.cpp.o
+.PHONY : fastTrackerMPCUDA.cpp.o
+
+fastTrackerMPCUDA.i: fastTrackerMPCUDA.cpp.i
+
+.PHONY : fastTrackerMPCUDA.i
+
+# target to preprocess a source file
+fastTrackerMPCUDA.cpp.i:
+	$(MAKE) -f CMakeFiles/kcfDetect.dir/build.make CMakeFiles/kcfDetect.dir/fastTrackerMPCUDA.cpp.i
+.PHONY : fastTrackerMPCUDA.cpp.i
+
+fastTrackerMPCUDA.s: fastTrackerMPCUDA.cpp.s
+
+.PHONY : fastTrackerMPCUDA.s
+
+# target to generate assembly for a file
+fastTrackerMPCUDA.cpp.s:
+	$(MAKE) -f CMakeFiles/kcfDetect.dir/build.make CMakeFiles/kcfDetect.dir/fastTrackerMPCUDA.cpp.s
+.PHONY : fastTrackerMPCUDA.cpp.s
 
 main.o: main.cpp.o
 
@@ -186,9 +294,21 @@ help:
 	@echo "... rebuild_cache"
 	@echo "... edit_cache"
 	@echo "... kcfDetect"
+	@echo "... extern/tracy/public/TracyClient.o"
+	@echo "... extern/tracy/public/TracyClient.i"
+	@echo "... extern/tracy/public/TracyClient.s"
 	@echo "... fastTracker.o"
 	@echo "... fastTracker.i"
 	@echo "... fastTracker.s"
+	@echo "... fastTrackerCUDA.o"
+	@echo "... fastTrackerCUDA.i"
+	@echo "... fastTrackerCUDA.s"
+	@echo "... fastTrackerMP.o"
+	@echo "... fastTrackerMP.i"
+	@echo "... fastTrackerMP.s"
+	@echo "... fastTrackerMPCUDA.o"
+	@echo "... fastTrackerMPCUDA.i"
+	@echo "... fastTrackerMPCUDA.s"
 	@echo "... main.o"
 	@echo "... main.i"
 	@echo "... main.s"
