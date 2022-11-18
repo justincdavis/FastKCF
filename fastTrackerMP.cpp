@@ -620,7 +620,6 @@ namespace cv {
     // and collapsed the loops to avoid overhead
 
     // for loop variables
-
     const int batch_size = 2;
     const int patch_area = patch_data.rows*patch_data.cols;
     #pragma omp parallel for
@@ -649,6 +648,42 @@ namespace cv {
         cnFeatures.at<Vec<float,10> >(i,j) = t;
       }
     }
+    // const int batch_size = 4;
+    // const int patch_area = patch_data.rows*patch_data.cols;
+    // #pragma omp parallel for
+    // for(int idx=0;idx<patch_area;idx+=batch_size){
+    //   unsigned indices[batch_size];
+    //   int is[batch_size];
+    //   int js[batch_size];
+    //   for(int offset=0; offset<batch_size; offset++){
+    //     if(idx+offset >= patch_area) break;
+    //     int h = idx+offset;
+    //     int i = h/patch_data.cols;
+    //     is[offset] = i;
+    //     int j = h%patch_data.cols;
+    //     js[offset] = j;
+    //     Vec3b pixel = patch_data.at<Vec3b>(i,j);
+    //     indices[offset] = (unsigned)(floor((float)pixel[2]/8)+32*floor((float)pixel[1]/8)+32*32*floor((float)pixel[0]/8));
+    //   }
+    //     // for(int k=0;k<10;k++)
+    //     //   cnFeatures.at<Vec<float,10> >(i,j)[k] = ColorNames[index][k];
+    //     //auto t = cnFeatures.at<Vec<float, 10> >(i, j);
+    //   for(int offset=0; offset<batch_size; offset++){
+    //     Vec<float, 10> t;
+    //     unsigned index = indices[offset];
+    //     t[0] = ColorNames[index][0];
+    //     t[1] = ColorNames[index][1];
+    //     t[2] = ColorNames[index][2];
+    //     t[3] = ColorNames[index][3];
+    //     t[4] = ColorNames[index][4];
+    //     t[5] = ColorNames[index][5];
+    //     t[6] = ColorNames[index][6];
+    //     t[7] = ColorNames[index][7];
+    //     t[8] = ColorNames[index][8];
+    //     t[9] = ColorNames[index][9];
+    //     cnFeatures.at<Vec<float,10> >(is[offset],js[offset]) = t;
+    //   }
+    // }
     // for(int idx=0;idx<patch_data.rows*patch_data.cols;idx++){
     //   int i = idx/patch_data.cols;
     //   int j = idx%patch_data.cols;
