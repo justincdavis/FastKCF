@@ -11,7 +11,7 @@ namespace cv{
 //template <typename T>
 //using Ptr = std::shared_ptr<T>; 
 
-class FastTracker
+class FastTrackerMPCUDA
 {
 public:
     struct Params {
@@ -27,8 +27,8 @@ public:
         bool compress_feature;        //!<  activate the pca method to compress the features
         int max_patch_size;           //!<  threshold for the ROI size
         int compressed_size;          //!<  feature size after compression
-        int desc_pca;        //!<  compressed descriptors of FastTracker::MODE
-        int desc_npca;       //!<  non-compressed descriptors of FastTracker::MODE
+        int desc_pca;        //!<  compressed descriptors of FastTrackerMPCUDA::MODE
+        int desc_npca;       //!<  non-compressed descriptors of FastTrackerMPCUDA::MODE
 
         Params();
     };
@@ -50,7 +50,7 @@ private:
     void inline updateProjectionMatrix(const Mat src, Mat & old_cov,Mat &  proj_matrix,float pca_rate, int compressed_sz,
                                        std::vector<Mat> & layers_pca,std::vector<Scalar> & average, Mat pca_data, Mat new_cov, Mat w, Mat u, Mat v);
     void inline compress(const Mat proj_matrix, const Mat src, Mat & dest, Mat & data, Mat & compressed) const;
-    bool getSubWindow(const Mat img, const Rect roi, Mat& feat, Mat& patch, FastTracker::MODE desc = GRAY) const;
+    bool getSubWindow(const Mat img, const Rect roi, Mat& feat, Mat& patch, FastTrackerMPCUDA::MODE desc = GRAY) const;
     bool getSubWindow(const Mat img, const Rect roi, Mat& feat, void (*f)(const Mat, const Rect, Mat& )) const;
     void extractCN(Mat patch_data, Mat & cnFeatures) const;
     void denseGaussKernel(const float sigma, const Mat , const Mat y_data, Mat & k_data,
@@ -111,13 +111,13 @@ private:
 ///////
 
 public:
-    FastTracker(FastTracker::Params p);  // use ::create()
+    FastTrackerMPCUDA(FastTrackerMPCUDA::Params p);  // use ::create()
     
     Params params;
 
-    static Ptr<FastTracker> create() {
-        FastTracker::Params p = FastTracker::Params{};
-        return makePtr<FastTracker>(p);
+    static Ptr<FastTrackerMPCUDA> create() {
+        FastTrackerMPCUDA::Params p = FastTrackerMPCUDA::Params{};
+        return makePtr<FastTrackerMPCUDA>(p);
     }
 
     void init(InputArray image, const Rect& boundingBox);

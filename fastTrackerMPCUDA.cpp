@@ -1,4 +1,4 @@
-#include "fastTracker.hpp"
+#include "fastTrackerMPCUDA.hpp"
 #include <complex>
 #include <cmath>
 #include "colorNames.hpp"
@@ -15,7 +15,7 @@ namespace cv {
 //    return std::make_shared<T>();
 //}
 
-  FastTracker::FastTracker(FastTracker::Params p) :
+  FastTrackerMPCUDA::FastTrackerMPCUDA(FastTrackerMPCUDA::Params p) :
     params(p)
   {
     resizeImage = false;
@@ -30,7 +30,7 @@ namespace cv {
    * - creating a gaussian response for the training ground-truth
    * - perform FFT to the gaussian response
    */
-  void FastTracker::init(InputArray image, const Rect& boundingBox)
+  void FastTrackerMPCUDA::init(InputArray image, const Rect& boundingBox)
   {
     frame=0;
     roi.x = cvRound(boundingBox.x);
@@ -89,7 +89,7 @@ namespace cv {
       params.desc_pca &= ~(CN);
       params.desc_npca &= ~(CN);
     }
-    //model = makePtr<FastTrackerModel>();
+    //model = makePtr<FastTrackerMPCUDAModel>();
 
     //std::cout << "Record the non-compressed descriptors" << std::endl;
     // record the non-compressed descriptors
@@ -126,7 +126,7 @@ namespace cv {
   /*
    * Main part of the KCF algorithm
    */
-  bool FastTracker::update(InputArray image, Rect& boundingBoxResult)
+  bool FastTrackerMPCUDA::update(InputArray image, Rect& boundingBoxResult)
   {
     double minVal, maxVal;	// min-max response
     Point minLoc,maxLoc;	// min-max location
@@ -341,7 +341,7 @@ namespace cv {
   /*
    * hann window filter
    */
-  void FastTracker::createHanningWindow(OutputArray dest, const cv::Size winSize, const int type) const {
+  void FastTrackerMPCUDA::createHanningWindow(OutputArray dest, const cv::Size winSize, const int type) const {
       CV_Assert( type == CV_32FC1 || type == CV_64FC1 );
 
       dest.create(winSize, type);
@@ -380,11 +380,11 @@ namespace cv {
   /*
    * simplification of fourier transform function in opencv
    */
-  void inline FastTracker::fft2(const Mat src, Mat & dest) const {
+  void inline FastTrackerMPCUDA::fft2(const Mat src, Mat & dest) const {
     dft(src,dest,DFT_COMPLEX_OUTPUT);
   }
 
-  void inline FastTracker::fft2(const Mat src, std::vector<Mat> & dest, std::vector<Mat> & layers_data) const {
+  void inline FastTrackerMPCUDA::fft2(const Mat src, std::vector<Mat> & dest, std::vector<Mat> & layers_data) const {
     split(src, layers_data);
 
     for(int i=0;i<src.channels();i++){
@@ -395,14 +395,14 @@ namespace cv {
   /*
    * simplification of inverse fourier transform function in opencv
    */
-  void inline FastTracker::ifft2(const Mat src, Mat & dest) const {
+  void inline FastTrackerMPCUDA::ifft2(const Mat src, Mat & dest) const {
     idft(src,dest,DFT_SCALE+DFT_REAL_OUTPUT);
   }
 
   /*
    * Point-wise multiplication of two Multichannel Mat data
    */
-  void inline FastTracker::pixelWiseMult(const std::vector<Mat> src1, const std::vector<Mat>  src2, std::vector<Mat>  & dest, const int flags, const bool conjB) const {
+  void inline FastTrackerMPCUDA::pixelWiseMult(const std::vector<Mat> src1, const std::vector<Mat>  src2, std::vector<Mat>  & dest, const int flags, const bool conjB) const {
     for(unsigned i=0;i<src1.size();i++){
       mulSpectrums(src1[i], src2[i], dest[i],flags,conjB);
     }
@@ -411,7 +411,7 @@ namespace cv {
   /*
    * Combines all channels in a multi-channels Mat data into a single channel
    */
-  void inline FastTracker::sumChannels(std::vector<Mat> src, Mat & dest) const {
+  void inline FastTrackerMPCUDA::sumChannels(std::vector<Mat> src, Mat & dest) const {
     dest=src[0].clone();
     for(unsigned i=1;i<src.size();i++){
       dest+=src[i];
@@ -421,7 +421,7 @@ namespace cv {
   /*
    * obtains the projection matrix using PCA
    */
-  void inline FastTracker::updateProjectionMatrix(const Mat src, Mat & old_cov,Mat &  proj_matrix, float pca_rate, int compressed_sz,
+  void inline FastTrackerMPCUDA::updateProjectionMatrix(const Mat src, Mat & old_cov,Mat &  proj_matrix, float pca_rate, int compressed_sz,
                                                      std::vector<Mat> & layers_pca,std::vector<Scalar> & average, Mat pca_data, Mat new_cov, Mat w, Mat u, Mat vt) {
     CV_Assert(compressed_sz<=src.channels());
 
@@ -456,7 +456,7 @@ namespace cv {
   /*
    * compress the features
    */
-  void inline FastTracker::compress(const Mat proj_matrix, const Mat src, Mat & dest, Mat & data, Mat & compressed) const {
+  void inline FastTrackerMPCUDA::compress(const Mat proj_matrix, const Mat src, Mat & dest, Mat & data, Mat & compressed) const {
     data=src.reshape(1,src.rows*src.cols);
     compressed=data*proj_matrix;
     dest=compressed.reshape(proj_matrix.cols,src.rows).clone();
@@ -465,7 +465,7 @@ namespace cv {
   /*
    * obtain the patch and apply hann window filter to it
    */
-  bool FastTracker::getSubWindow(const Mat img, const Rect _roi, Mat& feat, Mat& patch, FastTracker::MODE desc) const {
+  bool FastTrackerMPCUDA::getSubWindow(const Mat img, const Rect _roi, Mat& feat, Mat& patch, FastTrackerMPCUDA::MODE desc) const {
 
     Rect region=_roi;
 
@@ -523,7 +523,7 @@ namespace cv {
   /*
    * get feature using external function
    */
-  bool FastTracker::getSubWindow(const Mat img, const Rect _roi, Mat& feat, void (*f)(const Mat, const Rect, Mat& )) const{
+  bool FastTrackerMPCUDA::getSubWindow(const Mat img, const Rect _roi, Mat& feat, void (*f)(const Mat, const Rect, Mat& )) const{
 
     // return false if roi is outside the image
     if((_roi.x+_roi.width<0)
@@ -554,7 +554,7 @@ namespace cv {
 
   /* Convert BGR to ColorNames
    */
-  void FastTracker::extractCN(Mat patch_data, Mat & cnFeatures) const {
+  void FastTrackerMPCUDA::extractCN(Mat patch_data, Mat & cnFeatures) const {
     Vec3b & pixel = patch_data.at<Vec3b>(0,0);
     unsigned index;
 
@@ -578,7 +578,7 @@ namespace cv {
   /*
    *  dense gauss kernel function
    */
-  void FastTracker::denseGaussKernel(const float sigma, const Mat x_data, const Mat y_data, Mat & k_data,
+  void FastTrackerMPCUDA::denseGaussKernel(const float sigma, const Mat x_data, const Mat y_data, Mat & k_data,
                                         std::vector<Mat> & layers_data,std::vector<Mat> & xf_data,std::vector<Mat> & yf_data, std::vector<Mat> xyf_v, Mat xy, Mat xyf ) const {
     double normX, normY;
 
@@ -620,7 +620,7 @@ namespace cv {
    * http://stackoverflow.com/questions/10420454/shift-like-matlab-function-rows-or-columns-of-a-matrix-in-opencv
    */
   // circular shift one row from up to down
-  void FastTracker::shiftRows(Mat& mat) const {
+  void FastTrackerMPCUDA::shiftRows(Mat& mat) const {
 
       Mat temp;
       Mat m;
@@ -636,7 +636,7 @@ namespace cv {
   }
 
   // circular shift n rows from up to down if n > 0, -n rows from down to up if n < 0
-  void FastTracker::shiftRows(Mat& mat, int n) const {
+  void FastTrackerMPCUDA::shiftRows(Mat& mat, int n) const {
       if( n < 0 ) {
         n = -n;
         flip(mat,mat,0);
@@ -652,7 +652,7 @@ namespace cv {
   }
 
   //circular shift n columns from left to right if n > 0, -n columns from right to left if n < 0
-  void FastTracker::shiftCols(Mat& mat, int n) const {
+  void FastTrackerMPCUDA::shiftCols(Mat& mat, int n) const {
       if(n < 0){
         n = -n;
         flip(mat,mat,1);
@@ -670,7 +670,7 @@ namespace cv {
   /*
    * calculate the detection response
    */
-  void FastTracker::calcResponse(const Mat alphaf_data, const Mat kf_data, Mat & response_data, Mat & spec_data) const {
+  void FastTrackerMPCUDA::calcResponse(const Mat alphaf_data, const Mat kf_data, Mat & response_data, Mat & spec_data) const {
     //alpha f--> 2channels ; k --> 1 channel;
     mulSpectrums(alphaf_data,kf_data,spec_data,0,false);
     ifft2(spec_data,response_data);
@@ -679,7 +679,7 @@ namespace cv {
   /*
    * calculate the detection response for splitted form
    */
-  void FastTracker::calcResponse(const Mat alphaf_data, const Mat _alphaf_den, const Mat kf_data, Mat & response_data, Mat & spec_data, Mat & spec2_data) const {
+  void FastTrackerMPCUDA::calcResponse(const Mat alphaf_data, const Mat _alphaf_den, const Mat kf_data, Mat & response_data, Mat & spec_data, Mat & spec2_data) const {
 
     mulSpectrums(alphaf_data,kf_data,spec_data,0,false);
 
@@ -698,7 +698,7 @@ namespace cv {
     ifft2(spec2_data,response_data);
   }
 
-  void FastTracker::setFeatureExtractor(void (*f)(const Mat, const Rect, Mat&), bool pca_func){
+  void FastTrackerMPCUDA::setFeatureExtractor(void (*f)(const Mat, const Rect, Mat&), bool pca_func){
     if(pca_func){
       extractor_pca.push_back(f);
       use_custom_extractor_pca = true;
@@ -709,7 +709,7 @@ namespace cv {
   }
   /*----------------------------------------------------------------------*/
 
-FastTracker::Params::Params()
+FastTrackerMPCUDA::Params::Params()
 {
   detect_thresh = 0.5f;
   sigma=0.2f;

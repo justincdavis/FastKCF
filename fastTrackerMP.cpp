@@ -1,9 +1,11 @@
-#include "fastTracker.hpp"
+#include "fastTrackerMP.hpp"
 #include <complex>
 #include <cmath>
 #include "colorNames.hpp"
 
 #include <opencv2/imgproc.hpp> // INTER_LINEAR_EXACT
+
+#include "Tracy.hpp"
 
 namespace cv {
 //inline namespace tracking {
@@ -15,7 +17,7 @@ namespace cv {
 //    return std::make_shared<T>();
 //}
 
-  FastTracker::FastTracker(FastTracker::Params p) :
+  FastTrackerMP::FastTrackerMP(FastTrackerMP::Params p) :
     params(p)
   {
     resizeImage = false;
@@ -30,8 +32,9 @@ namespace cv {
    * - creating a gaussian response for the training ground-truth
    * - perform FFT to the gaussian response
    */
-  void FastTracker::init(InputArray image, const Rect& boundingBox)
+  void FastTrackerMP::init(InputArray image, const Rect& boundingBox)
   {
+    ZoneScopedN("ftmp init");
     frame=0;
     roi.x = cvRound(boundingBox.x);
     roi.y = cvRound(boundingBox.y);
@@ -69,6 +72,7 @@ namespace cv {
     //std::cout << "Creating the gaussian response" << std::endl;
     // create gaussian response
     y=Mat::zeros((int)roi.height,(int)roi.width,CV_32F);
+
     for(int i=0;i<int(roi.height);i++){
       for(int j=0;j<int(roi.width);j++){
         y.at<float>(i,j) =
@@ -89,7 +93,7 @@ namespace cv {
       params.desc_pca &= ~(CN);
       params.desc_npca &= ~(CN);
     }
-    //model = makePtr<FastTrackerModel>();
+    //model = makePtr<FastTrackerMPModel>();
 
     //std::cout << "Record the non-compressed descriptors" << std::endl;
     // record the non-compressed descriptors
@@ -126,8 +130,9 @@ namespace cv {
   /*
    * Main part of the KCF algorithm
    */
-  bool FastTracker::update(InputArray image, Rect& boundingBoxResult)
+  bool FastTrackerMP::update(InputArray image, Rect& boundingBoxResult)
   {
+    ZoneScopedN("ftmp update");
     double minVal, maxVal;	// min-max response
     Point minLoc,maxLoc;	// min-max location
 
@@ -208,9 +213,6 @@ namespace cv {
       roi.y+=(maxLoc.y-roi.height/2+1);
     }
 
-    // #TEMP
-    //return true;
-
     // update the bounding box
     Rect2d boundingBox;
     boundingBox.x=(resizeImage?roi.x*2:roi.x)+(resizeImage?roi.width*2:roi.width)/4;
@@ -239,9 +241,6 @@ namespace cv {
     }
     if(features_pca.size()>0)merge(features_pca,X[0]);
 
-    // #TEMP
-    //return true;
-
     //update the training data
     if(frame==0){
       Z[0] = X[0].clone();
@@ -250,9 +249,6 @@ namespace cv {
       Z[0]=(1.0-params.interp_factor)*Z[0]+params.interp_factor*X[0];
       Z[1]=(1.0-params.interp_factor)*Z[1]+params.interp_factor*X[1];
     }
-
-    // #TEMP
-    // AFTER MEEE
 
     if(params.desc_pca !=0 || use_custom_extractor_pca){
       // initialize the vector of Mat variables
@@ -265,9 +261,6 @@ namespace cv {
       updateProjectionMatrix(Z[0],old_cov_mtx,proj_mtx,params.pca_learning_rate,params.compressed_size,layers_pca_data,average_data,data_pca, new_covar,w_data,u_data,vt_data);
       compress(proj_mtx,X[0],X[0],data_temp,compress_data);
     }
-
-    // #
-    // BEFORE MEEEE
 
     // merge all features
     if(features_npca.size()==0)
@@ -286,9 +279,6 @@ namespace cv {
       new_alphaf=Mat_<Vec2f >(yf.rows, yf.cols);
     }
 
-    // #TEMP
-    // BORKEN BEFORE HERE
-
     // Kernel Regularized Least-Squares, calculate alphas
     denseGaussKernel(params.sigma,x,x,k,layers,vxf,vyf,vxyf,xy_data,xyf_data);
 
@@ -301,6 +291,7 @@ namespace cv {
       mulSpectrums(yf,kf,new_alphaf,0);
       mulSpectrums(kf,kf_lambda,new_alphaf_den,0);
     }else{
+       
       for(int i=0;i<yf.rows;i++){
         for(int j=0;j<yf.cols;j++){
           den = 1.0f/(kf_lambda.at<Vec2f>(i,j)[0]*kf_lambda.at<Vec2f>(i,j)[0]+kf_lambda.at<Vec2f>(i,j)[1]*kf_lambda.at<Vec2f>(i,j)[1]);
@@ -341,7 +332,8 @@ namespace cv {
   /*
    * hann window filter
    */
-  void FastTracker::createHanningWindow(OutputArray dest, const cv::Size winSize, const int type) const {
+  void FastTrackerMP::createHanningWindow(OutputArray dest, const cv::Size winSize, const int type) const {
+      ZoneScopedN("ftmp hanningWindow");
       CV_Assert( type == CV_32FC1 || type == CV_64FC1 );
 
       dest.create(winSize, type);
@@ -354,10 +346,12 @@ namespace cv {
 
       const float coeff0 = 2.0f * (float)CV_PI / (cols - 1);
       const float coeff1 = 2.0f * (float)CV_PI / (rows - 1);
+       
       for(int j = 0; j < cols; j++)
         wc[j] = 0.5f * (1.0f - cos(coeff0 * j));
 
       if(dst.depth() == CV_32F){
+         
         for(int i = 0; i < rows; i++){
           float* dstData = dst.ptr<float>(i);
           float wr = 0.5f * (1.0f - cos(coeff1 * i));
@@ -365,6 +359,7 @@ namespace cv {
             dstData[j] = (float)(wr * wc[j]);
         }
       }else{
+         
         for(int i = 0; i < rows; i++){
           double* dstData = dst.ptr<double>(i);
           double wr = 0.5f * (1.0f - cos(coeff1 * i));
@@ -380,13 +375,16 @@ namespace cv {
   /*
    * simplification of fourier transform function in opencv
    */
-  void inline FastTracker::fft2(const Mat src, Mat & dest) const {
+  void inline FastTrackerMP::fft2(const Mat src, Mat & dest) const {
+    ZoneScopedN("ftmp fft2");
     dft(src,dest,DFT_COMPLEX_OUTPUT);
   }
 
-  void inline FastTracker::fft2(const Mat src, std::vector<Mat> & dest, std::vector<Mat> & layers_data) const {
+  void inline FastTrackerMP::fft2(const Mat src, std::vector<Mat> & dest, std::vector<Mat> & layers_data) const {
+    ZoneScopedN("ftmp fft2");
     split(src, layers_data);
 
+     // #pragma omp parallel for private(dest)
     for(int i=0;i<src.channels();i++){
       dft(layers_data[i],dest[i],DFT_COMPLEX_OUTPUT);
     }
@@ -395,14 +393,17 @@ namespace cv {
   /*
    * simplification of inverse fourier transform function in opencv
    */
-  void inline FastTracker::ifft2(const Mat src, Mat & dest) const {
+  void inline FastTrackerMP::ifft2(const Mat src, Mat & dest) const {
+    ZoneScopedN("ftmp ifft2");
     idft(src,dest,DFT_SCALE+DFT_REAL_OUTPUT);
   }
 
   /*
    * Point-wise multiplication of two Multichannel Mat data
    */
-  void inline FastTracker::pixelWiseMult(const std::vector<Mat> src1, const std::vector<Mat>  src2, std::vector<Mat>  & dest, const int flags, const bool conjB) const {
+  void inline FastTrackerMP::pixelWiseMult(const std::vector<Mat> src1, const std::vector<Mat>  src2, std::vector<Mat>  & dest, const int flags, const bool conjB) const {
+    ZoneScopedN("ftmp pxWiseMult");
+     // #pragma omp parallel for private(dest)
     for(unsigned i=0;i<src1.size();i++){
       mulSpectrums(src1[i], src2[i], dest[i],flags,conjB);
     }
@@ -411,8 +412,11 @@ namespace cv {
   /*
    * Combines all channels in a multi-channels Mat data into a single channel
    */
-  void inline FastTracker::sumChannels(std::vector<Mat> src, Mat & dest) const {
+  void inline FastTrackerMP::sumChannels(std::vector<Mat> src, Mat & dest) const {
+    ZoneScopedN("ftmp sumChans");
     dest=src[0].clone();
+    
+     // #pragma omp parallel for private(dest)
     for(unsigned i=1;i<src.size();i++){
       dest+=src[i];
     }
@@ -421,12 +425,14 @@ namespace cv {
   /*
    * obtains the projection matrix using PCA
    */
-  void inline FastTracker::updateProjectionMatrix(const Mat src, Mat & old_cov,Mat &  proj_matrix, float pca_rate, int compressed_sz,
+  void inline FastTrackerMP::updateProjectionMatrix(const Mat src, Mat & old_cov,Mat &  proj_matrix, float pca_rate, int compressed_sz,
                                                      std::vector<Mat> & layers_pca,std::vector<Scalar> & average, Mat pca_data, Mat new_cov, Mat w, Mat u, Mat vt) {
+    ZoneScopedN("ftmp upProjMat");
     CV_Assert(compressed_sz<=src.channels());
 
     split(src,layers_pca);
 
+     // #pragma omp parallel for
     for (int i=0;i<src.channels();i++){
       average[i]=mean(layers_pca[i]);
       layers_pca[i]-=average[i];
@@ -445,6 +451,8 @@ namespace cv {
     // extract the projection matrix
     proj_matrix=u(Rect(0,0,compressed_sz,src.channels())).clone();
     Mat proj_vars=Mat::eye(compressed_sz,compressed_sz,proj_matrix.type());
+
+     // #pragma omp parallel for
     for(int i=0;i<compressed_sz;i++){
       proj_vars.at<float>(i,i)=w.at<float>(i);
     }
@@ -456,7 +464,7 @@ namespace cv {
   /*
    * compress the features
    */
-  void inline FastTracker::compress(const Mat proj_matrix, const Mat src, Mat & dest, Mat & data, Mat & compressed) const {
+  void inline FastTrackerMP::compress(const Mat proj_matrix, const Mat src, Mat & dest, Mat & data, Mat & compressed) const {
     data=src.reshape(1,src.rows*src.cols);
     compressed=data*proj_matrix;
     dest=compressed.reshape(proj_matrix.cols,src.rows).clone();
@@ -465,8 +473,8 @@ namespace cv {
   /*
    * obtain the patch and apply hann window filter to it
    */
-  bool FastTracker::getSubWindow(const Mat img, const Rect _roi, Mat& feat, Mat& patch, FastTracker::MODE desc) const {
-
+  bool FastTrackerMP::getSubWindow(const Mat img, const Rect _roi, Mat& feat, Mat& patch, FastTrackerMP::MODE desc) const {
+    ZoneScopedN("ftmp getSubWnd");
     Rect region=_roi;
 
     // return false if roi is outside the image
@@ -523,7 +531,8 @@ namespace cv {
   /*
    * get feature using external function
    */
-  bool FastTracker::getSubWindow(const Mat img, const Rect _roi, Mat& feat, void (*f)(const Mat, const Rect, Mat& )) const{
+  bool FastTrackerMP::getSubWindow(const Mat img, const Rect _roi, Mat& feat, void (*f)(const Mat, const Rect, Mat& )) const{
+    ZoneScopedN("ftmp getSubWnd");
 
     // return false if roi is outside the image
     if((_roi.x+_roi.width<0)
@@ -542,6 +551,7 @@ namespace cv {
     Mat hann_win;
     std::vector<Mat> _layers;
 
+     // #pragma omp parallel for 
     for(int i=0;i<feat.channels();i++)
       _layers.push_back(hann);
 
@@ -554,13 +564,16 @@ namespace cv {
 
   /* Convert BGR to ColorNames
    */
-  void FastTracker::extractCN(Mat patch_data, Mat & cnFeatures) const {
+  void FastTrackerMP::extractCN(Mat patch_data, Mat & cnFeatures) const {
+    ZoneScopedN("ftmp extractCn");
     Vec3b & pixel = patch_data.at<Vec3b>(0,0);
     unsigned index;
 
     if(cnFeatures.type() != CV_32FC(10))
       cnFeatures = Mat::zeros(patch_data.rows,patch_data.cols,CV_32FC(10));
 
+    // TODO parallelize
+    // #pragma omp parallel for
     for(int i=0;i<patch_data.rows;i++){
       for(int j=0;j<patch_data.cols;j++){
         pixel=patch_data.at<Vec3b>(i,j);
@@ -578,8 +591,9 @@ namespace cv {
   /*
    *  dense gauss kernel function
    */
-  void FastTracker::denseGaussKernel(const float sigma, const Mat x_data, const Mat y_data, Mat & k_data,
+  void FastTrackerMP::denseGaussKernel(const float sigma, const Mat x_data, const Mat y_data, Mat & k_data,
                                         std::vector<Mat> & layers_data,std::vector<Mat> & xf_data,std::vector<Mat> & yf_data, std::vector<Mat> xyf_v, Mat xy, Mat xyf ) const {
+    ZoneScopedN("ftmp denseGauss");
     double normX, normY;
 
     fft2(x_data,xf_data,layers_data);
@@ -604,9 +618,11 @@ namespace cv {
 
     // TODO: check wether we really need thresholding or not
     //threshold(xy,xy,0.0,0.0,THRESH_TOZERO);//max(0, (xx + yy - 2 * xy) / numel(x))
+    #pragma omp parallel for private(xy)
     for(int i=0;i<xy.rows;i++){
       for(int j=0;j<xy.cols;j++){
-        if(xy.at<float>(i,j)<0.0)xy.at<float>(i,j)=0.0;
+        if(xy.at<float>(i,j)<0.0)
+            xy.at<float>(i,j)=0.0;
       }
     }
 
@@ -620,8 +636,21 @@ namespace cv {
    * http://stackoverflow.com/questions/10420454/shift-like-matlab-function-rows-or-columns-of-a-matrix-in-opencv
    */
   // circular shift one row from up to down
-  void FastTracker::shiftRows(Mat& mat) const {
+  void FastTrackerMP::shiftRows(Mat& mat) const {
+      ZoneScopedN("ftmp shiftRows1");
 
+      // Mat temp;
+      // Mat m;
+      // int k = (mat.rows-1);
+      // mat.row(k).copyTo(temp);
+
+      // #pragma omp parallel for private(m)
+      // for(int i = k; i >= 0; i--) {
+      //   auto targetIdx = std::abs((i-1) % k);
+      //   m = mat.row(i);  // copy the current row into m
+      //   mat.row(targetIdx).copyTo(m);  // ...then overwrite it with row i-1?
+      // }
+      // temp.copyTo(m);
       Mat temp;
       Mat m;
       int _k = (mat.rows-1);
@@ -636,15 +665,20 @@ namespace cv {
   }
 
   // circular shift n rows from up to down if n > 0, -n rows from down to up if n < 0
-  void FastTracker::shiftRows(Mat& mat, int n) const {
+  void FastTrackerMP::shiftRows(Mat& mat, int n) const {
+    ZoneScopedN("ftmp shiftRowsN");
       if( n < 0 ) {
         n = -n;
         flip(mat,mat,0);
+        
+        #pragma omp parallel for private(mat)
         for(int _k=0; _k < n;_k++) {
           shiftRows(mat);
         }
         flip(mat,mat,0);
       }else{
+        
+        #pragma omp parallel for private(mat)
         for(int _k=0; _k < n;_k++) {
           shiftRows(mat);
         }
@@ -652,7 +686,8 @@ namespace cv {
   }
 
   //circular shift n columns from left to right if n > 0, -n columns from right to left if n < 0
-  void FastTracker::shiftCols(Mat& mat, int n) const {
+  void FastTrackerMP::shiftCols(Mat& mat, int n) const {
+    ZoneScopedN("ftmp shiftCols");
       if(n < 0){
         n = -n;
         flip(mat,mat,1);
@@ -670,7 +705,8 @@ namespace cv {
   /*
    * calculate the detection response
    */
-  void FastTracker::calcResponse(const Mat alphaf_data, const Mat kf_data, Mat & response_data, Mat & spec_data) const {
+  void FastTrackerMP::calcResponse(const Mat alphaf_data, const Mat kf_data, Mat & response_data, Mat & spec_data) const {
+    ZoneScopedN("ftmp calcResp");
     //alpha f--> 2channels ; k --> 1 channel;
     mulSpectrums(alphaf_data,kf_data,spec_data,0,false);
     ifft2(spec_data,response_data);
@@ -679,12 +715,15 @@ namespace cv {
   /*
    * calculate the detection response for splitted form
    */
-  void FastTracker::calcResponse(const Mat alphaf_data, const Mat _alphaf_den, const Mat kf_data, Mat & response_data, Mat & spec_data, Mat & spec2_data) const {
+  void FastTrackerMP::calcResponse(const Mat alphaf_data, const Mat _alphaf_den, const Mat kf_data, Mat & response_data, Mat & spec_data, Mat & spec2_data) const {
+    ZoneScopedN("ftmp calcResp");
 
     mulSpectrums(alphaf_data,kf_data,spec_data,0,false);
 
     //z=(a+bi)/(c+di)=[(ac+bd)+i(bc-ad)]/(c^2+d^2)
     float den;
+
+    #pragma omp parallel for private(den)
     for(int i=0;i<kf_data.rows;i++){
       for(int j=0;j<kf_data.cols;j++){
         den=1.0f/(_alphaf_den.at<Vec2f>(i,j)[0]*_alphaf_den.at<Vec2f>(i,j)[0]+_alphaf_den.at<Vec2f>(i,j)[1]*_alphaf_den.at<Vec2f>(i,j)[1]);
@@ -698,7 +737,7 @@ namespace cv {
     ifft2(spec2_data,response_data);
   }
 
-  void FastTracker::setFeatureExtractor(void (*f)(const Mat, const Rect, Mat&), bool pca_func){
+  void FastTrackerMP::setFeatureExtractor(void (*f)(const Mat, const Rect, Mat&), bool pca_func){
     if(pca_func){
       extractor_pca.push_back(f);
       use_custom_extractor_pca = true;
@@ -709,7 +748,7 @@ namespace cv {
   }
   /*----------------------------------------------------------------------*/
 
-FastTracker::Params::Params()
+FastTrackerMP::Params::Params()
 {
   detect_thresh = 0.5f;
   sigma=0.2f;
