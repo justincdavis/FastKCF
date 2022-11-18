@@ -6,9 +6,10 @@ find_package(OpenCV REQUIRED)
 find_package(OpenMP REQUIRED)
 
 # debugging
-# add_compile_options(-fsanitize=address -ffast-math -o3 -fopenmp)
 # add_link_options(-fsanitize=address)
+
 add_compile_options(-ffast-math -o3 -fopenmp)
+add_compile_options(-g)
 
 include_directories(kcfDetect PUBLIC
     extern/tracy/public/tracy

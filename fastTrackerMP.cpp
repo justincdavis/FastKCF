@@ -139,11 +139,14 @@ namespace cv {
     CV_Assert(image.channels() == 1 || image.channels() == 3);
 
     Mat img;
+    {
+      ZoneScopedN("resize");
     // resize the image whenever needed
     if (resizeImage)
         resize(image, img, Size(image.cols()/2, image.rows()/2), 0, 0, INTER_LINEAR_EXACT);
     else
         image.copyTo(img);
+    }
 
     // detection part
     if(frame>0){
@@ -158,7 +161,10 @@ namespace cv {
       for(unsigned i=0,j=(unsigned)(descriptors_npca.size()-extractor_npca.size());i<extractor_npca.size();i++,j++){
         if(!getSubWindow(img,roi, features_npca[j], extractor_npca[i]))return false;
       }
-      if(features_npca.size()>0)merge(features_npca,X[1]);
+      if(features_npca.size()>0) {
+        ZoneScopedN("merge");
+        merge(features_npca,X[1]);
+      }
 
       // get compressed descriptors
       for(unsigned i=0;i<descriptors_pca.size()-extractor_pca.size();i++){
@@ -168,10 +174,14 @@ namespace cv {
       for(unsigned i=0,j=(unsigned)(descriptors_pca.size()-extractor_pca.size());i<extractor_pca.size();i++,j++){
         if(!getSubWindow(img,roi, features_pca[j], extractor_pca[i]))return false;
       }
-      if(features_pca.size()>0)merge(features_pca,X[0]);
+      if(features_pca.size()>0) {
+        ZoneScopedN("merge");
+        merge(features_pca,X[0]);
+      }
 
       //compress the features and the KRSL model
       if(params.desc_pca !=0){
+        ZoneScopedN("compress");
         compress(proj_mtx,X[0],X[0],data_temp,compress_data);
         compress(proj_mtx,Z[0],Zc[0],data_temp,compress_data);
       }
@@ -179,6 +189,8 @@ namespace cv {
       // copy the compressed KRLS model
       Zc[1] = Z[1];
 
+      {
+        ZoneScopedN("feature merge");
       // merge all features
       if(features_npca.size()==0){
         x = X[0];
@@ -189,6 +201,7 @@ namespace cv {
       }else{
         merge(X,2,x);
         merge(Zc,2,z);
+      }
       }
 
       //compute the gaussian kernel
@@ -264,6 +277,8 @@ namespace cv {
       compress(proj_mtx,X[0],X[0],data_temp,compress_data);
     }
 
+    {
+      ZoneScopedN("merge features");
     // merge all features
     if(features_npca.size()==0)
       x = X[0];
@@ -271,6 +286,7 @@ namespace cv {
       x = X[1];
     else
       merge(X,2,x);
+    }
 
     // initialize some required Mat variables
     if(frame==0){
@@ -288,6 +304,8 @@ namespace cv {
     fft2(k,kf);
     kf_lambda=kf+params.lambda;
 
+    {
+      ZoneScopedN("post-fft stuff");
     float den;
     if(params.split_coeff){
       mulSpectrums(yf,kf,new_alphaf,0);
@@ -305,7 +323,10 @@ namespace cv {
         }
       }
     }
+    }
 
+    {
+      ZoneScopedN("update RLS");
     // update the RLS model
     if(frame==0){
       alphaf=new_alphaf.clone();
@@ -313,6 +334,7 @@ namespace cv {
     }else{
       alphaf=(1.0-params.interp_factor)*alphaf+params.interp_factor*new_alphaf;
       if(params.split_coeff)alphaf_den=(1.0-params.interp_factor)*alphaf_den+params.interp_factor*new_alphaf_den;
+    }
     }
 
     frame++;
@@ -405,7 +427,6 @@ namespace cv {
    */
   void inline FastTrackerMP::pixelWiseMult(const std::vector<Mat> src1, const std::vector<Mat>  src2, std::vector<Mat>  & dest, const int flags, const bool conjB) const {
     ZoneScopedN("ftmp pxWiseMult");
-     // #pragma omp parallel for private(dest)
     for(unsigned i=0;i<src1.size();i++){
       mulSpectrums(src1[i], src2[i], dest[i],flags,conjB);
     }
@@ -418,7 +439,6 @@ namespace cv {
     ZoneScopedN("ftmp sumChans");
     dest=src[0].clone();
     
-     // #pragma omp parallel for private(dest)
     for(unsigned i=1;i<src.size();i++){
       dest+=src[i];
     }
@@ -432,35 +452,57 @@ namespace cv {
     ZoneScopedN("ftmp upProjMat");
     CV_Assert(compressed_sz<=src.channels());
 
+    {
+      ZoneScopedN("split");
     split(src,layers_pca);
+    }
 
+    {
+      ZoneScopedN("avg");
      // #pragma omp parallel for
     for (int i=0;i<src.channels();i++){
       average[i]=mean(layers_pca[i]);
       layers_pca[i]-=average[i];
     }
+    }
 
+    {
+      ZoneScopedN("covar");
     // calc covariance matrix
     merge(layers_pca,pca_data);
     pca_data=pca_data.reshape(1,src.rows*src.cols);
+    }
     
     new_cov=1.0/(float)(src.rows*src.cols-1)*(pca_data.t()*pca_data);
     if(old_cov.rows==0)old_cov=new_cov.clone();
 
+    {
+      ZoneScopedN("pca");
     // calc PCA
     SVD::compute((1.0-pca_rate)*old_cov+pca_rate*new_cov, w, u, vt);
+    }
 
+    Mat proj_vars;
+    {
+      ZoneScopedN("extract");
     // extract the projection matrix
     proj_matrix=u(Rect(0,0,compressed_sz,src.channels())).clone();
-    Mat proj_vars=Mat::eye(compressed_sz,compressed_sz,proj_matrix.type());
+    proj_vars=Mat::eye(compressed_sz,compressed_sz,proj_matrix.type());
+    }
 
+    {
+      ZoneScopedN("update");
      // #pragma omp parallel for
     for(int i=0;i<compressed_sz;i++){
       proj_vars.at<float>(i,i)=w.at<float>(i);
     }
+    }
 
+    {
+      ZoneScopedN("covar update");
     // update the covariance matrix
     old_cov=(1.0-pca_rate)*old_cov+pca_rate*proj_matrix*proj_vars*proj_matrix.t();
+    }
   }
 
   /*
@@ -574,20 +616,51 @@ namespace cv {
     if(cnFeatures.type() != CV_32FC(10))
       cnFeatures = Mat::zeros(patch_data.rows,patch_data.cols,CV_32FC(10));
 
-    // TODO parallelize
-    // #pragma omp parallel for
-    for(int i=0;i<patch_data.rows;i++){
-      for(int j=0;j<patch_data.cols;j++){
-        pixel=patch_data.at<Vec3b>(i,j);
-        index=(unsigned)(floor((float)pixel[2]/8)+32*floor((float)pixel[1]/8)+32*32*floor((float)pixel[0]/8));
+    // perform the loops in parallel using OpenMP
+    // and collapsed the loops to avoid overhead
 
-        //copy the values
-        for(int _k=0;_k<10;_k++){
-          cnFeatures.at<Vec<float,10> >(i,j)[_k]=ColorNames[index][_k];
-        }
+    // for loop variables
+
+    const int batch_size = 2;
+    const int patch_area = patch_data.rows*patch_data.cols;
+    #pragma omp parallel for
+    for(int idx=0;idx<patch_area;idx+=batch_size){
+      for(int offset=0; offset<batch_size; offset++){
+        if(idx+offset >= patch_area) break;
+        int h = idx+offset;
+        int i = h/patch_data.cols;
+        int j = h%patch_data.cols;
+        Vec3b pixel = patch_data.at<Vec3b>(i,j);
+        unsigned index=(unsigned)(floor((float)pixel[2]/8)+32*floor((float)pixel[1]/8)+32*32*floor((float)pixel[0]/8));
+        // for(int k=0;k<10;k++)
+        //   cnFeatures.at<Vec<float,10> >(i,j)[k] = ColorNames[index][k];
+        //auto t = cnFeatures.at<Vec<float, 10> >(i, j);
+        Vec<float, 10> t;
+        t[0] = ColorNames[index][0];
+        t[1] = ColorNames[index][1];
+        t[2] = ColorNames[index][2];
+        t[3] = ColorNames[index][3];
+        t[4] = ColorNames[index][4];
+        t[5] = ColorNames[index][5];
+        t[6] = ColorNames[index][6];
+        t[7] = ColorNames[index][7];
+        t[8] = ColorNames[index][8];
+        t[9] = ColorNames[index][9];
+        cnFeatures.at<Vec<float,10> >(i,j) = t;
       }
     }
+    // for(int idx=0;idx<patch_data.rows*patch_data.cols;idx++){
+    //   int i = idx/patch_data.cols;
+    //   int j = idx%patch_data.cols;
 
+    //   Vec3b & pixel=patch_data.at<Vec3b>(i,j);
+    //   unsigned index=(unsigned)(floor((float)pixel[2]/8)+32*floor((float)pixel[1]/8)+32*32*floor((float)pixel[0]/8));
+
+    //   //copy the values
+    //   for(int _k=0;_k<10;_k++){
+    //     cnFeatures.at<Vec<float,10> >(i,j)[_k]=ColorNames[index][_k];
+    //   }
+    // }
   }
 
   /*

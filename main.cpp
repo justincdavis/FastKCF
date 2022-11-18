@@ -102,11 +102,10 @@ int main() {
         std::ofstream output_file;
         output_file.open("data/" + path.stem().string() + ".txt");
 
-        auto tracker = cv::TrackerKCF::create();
-        auto fast_tracker = cv::FastTracker::create();
-        auto fast_tracker_mp = cv::FastTrackerMP::create();
-        auto fast_tracker_cuda = cv::FastTrackerCUDA::create();
-        auto fast_tracker_mp_cuda = cv::FastTrackerMPCUDA::create();
+        auto tracker = cv::FastTracker::create();
+        auto tracker_mp = cv::FastTrackerMP::create();
+        auto tracker_cuda = cv::FastTrackerCUDA::create();
+        auto tracker_mp_cuda = cv::FastTrackerMPCUDA::create();
 
         // find all videos
         auto capture = cv::VideoCapture(path.string(), cv::CAP_ANY);
@@ -138,30 +137,28 @@ int main() {
 
                 cv::Rect rect(x, y, w, h);
                 
-                updateTracker("STD", tracker, output_file, frame, image, rect);
-                updateTracker("FAST", fast_tracker, output_file, frame, image, rect);
-                updateTracker("FAST_MP", fast_tracker_mp, output_file, frame, image, rect);
-                // updateTracker("FAST_CUDA", fast_tracker_cuda, output_file, frame, image, rect);
-                // updateTracker("FAST_MP_CUDA", fast_tracker_mp_cuda, output_file, frame, image, rect);
+                updateTracker("BASE", tracker, output_file, frame, image, rect);
+                updateTracker("MP", tracker_mp, output_file, frame, image, rect);
+                // updateTracker("CUDA", tracker_cuda, output_file, frame, image, rect);
+                // updateTracker("MP_CUDA", tracker_mp_cuda, output_file, frame, image, rect);
             } else {
                 cv::Rect dummy{ 0,0,0,0 };
-                auto [success, bb] = updateTracker("STD", tracker, output_file, frame, image, dummy);
-                auto [success_bb, bb_fast] = updateTracker("FAST", fast_tracker, output_file, frame, image, dummy);
-                auto [success_bb_mp, bb_fast_mp] = updateTracker("FAST_MP", fast_tracker_mp, output_file, frame, image, dummy);
-                // auto [success_bb_cuda, bb_fast_cuda] = updateTracker("FAST_CUDA", fast_tracker_cuda, output_file, frame, image, dummy);
-                // auto [success_bb_mp_cuda, bb_fast_mp_cuda] = updateTracker("FAST_MP_CUDA", fast_tracker_mp_cuda, output_file, frame, image, dummy);
+                auto [success, bb] = updateTracker("BASE", tracker, output_file, frame, image, dummy);
+                auto [success_bb, bb_mp] = updateTracker("MP", tracker_mp, output_file, frame, image, dummy);
+                // auto [success_bb_mp, bb_fast_mp] = updateTracker("CUDA", tracker_cuda, output_file, frame, image, dummy);
+                // auto [success_bb_cuda, bb_fast_cuda] = updateTracker("MP_CUDA", tracker_mp_cuda, output_file, frame, image, dummy);
                 
                 if (!success) {
                     break;
                 }
 
                 // compare the bounding boxes
-                if (!checkBoxesEqual("FAST", bb, bb_fast, frame)) {
+                if (!checkBoxesEqual("FAST", bb, bb_mp, frame)) {
                     break;
                 }
-                if (!checkBoxesEqual("FAST_MP", bb, bb_fast_mp, frame)) {
-                    break;
-                }
+                // if (!checkBoxesEqual("FAST_MP", bb, bb_fast, frame)) {
+                //     break;
+                // }
                 // if (!checkBoxesEqual("FAST_CUDA", bb, bb_fast_cuda, frame)) {
                 //     break;
                 // }
