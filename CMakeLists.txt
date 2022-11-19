@@ -18,5 +18,5 @@ include_directories(kcfDetect PUBLIC
 add_definitions(-DTRACY_ENABLE)
 add_definitions(-DTRACY_NO_INVARIANT_CHECK=1 -DTRACY_TIMER_FALLBACK)
 
-add_executable(kcfDetect main.cpp fastTracker.cpp fastTrackerMP.cpp fastTrackerCUDA.cpp fastTrackerMPCUDA.cpp extern/tracy/public/TracyClient.cpp)
+add_executable(kcfDetect main.cpp fastTracker.cpp fastTrackerMP.cpp fastTrackerMPCUDA.cpp extern/tracy/public/TracyClient.cpp utils.hpp)
 target_link_libraries(kcfDetect ${OpenCV_LIBS} OpenMP::OpenMP_CXX dl)

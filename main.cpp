@@ -11,7 +11,6 @@
 
 #include "fastTracker.hpp"
 #include "fastTrackerMP.hpp"
-#include "fastTrackerCUDA.hpp"
 #include "fastTrackerMPCUDA.hpp"
 
 #include "Tracy.hpp"
@@ -104,7 +103,6 @@ int main() {
 
         auto tracker = cv::FastTracker::create();
         auto tracker_mp = cv::FastTrackerMP::create();
-        auto tracker_cuda = cv::FastTrackerCUDA::create();
         auto tracker_mp_cuda = cv::FastTrackerMPCUDA::create();
 
         // find all videos
@@ -139,32 +137,24 @@ int main() {
                 
                 updateTracker("BASE", tracker, output_file, frame, image, rect);
                 updateTracker("MP", tracker_mp, output_file, frame, image, rect);
-                // updateTracker("CUDA", tracker_cuda, output_file, frame, image, rect);
-                // updateTracker("MP_CUDA", tracker_mp_cuda, output_file, frame, image, rect);
+                updateTracker("MP_CUDA", tracker_mp_cuda, output_file, frame, image, rect);
             } else {
                 cv::Rect dummy{ 0,0,0,0 };
                 auto [success, bb] = updateTracker("BASE", tracker, output_file, frame, image, dummy);
                 auto [success_bb, bb_mp] = updateTracker("MP", tracker_mp, output_file, frame, image, dummy);
-                // auto [success_bb_mp, bb_fast_mp] = updateTracker("CUDA", tracker_cuda, output_file, frame, image, dummy);
-                // auto [success_bb_cuda, bb_fast_cuda] = updateTracker("MP_CUDA", tracker_mp_cuda, output_file, frame, image, dummy);
+                auto [success_bb_cuda, bb_mp_cuda] = updateTracker("MP_CUDA", tracker_mp_cuda, output_file, frame, image, dummy);
                 
                 if (!success) {
                     break;
                 }
 
                 // compare the bounding boxes
-                if (!checkBoxesEqual("FAST", bb, bb_mp, frame)) {
+                if (!checkBoxesEqual("MP", bb, bb_mp, frame)) {
                     break;
                 }
-                // if (!checkBoxesEqual("FAST_MP", bb, bb_fast, frame)) {
-                //     break;
-                // }
-                // if (!checkBoxesEqual("FAST_CUDA", bb, bb_fast_cuda, frame)) {
-                //     break;
-                // }
-                // if (!checkBoxesEqual("FAST_MP_CUDA", bb, bb_fast_mp_cuda, frame)) {
-                //     break;
-                // }
+                if (!checkBoxesEqual("MP_CUDA", bb, bb_mp_cuda, frame)) {
+                    break;
+                }
             }
 
             ++frame;
