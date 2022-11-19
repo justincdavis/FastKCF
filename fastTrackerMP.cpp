@@ -25,6 +25,23 @@ namespace cv {
     use_custom_extractor_npca = false;
   }
 
+  // /*
+  // *  perform elementwise multiplication of a matrix with a scalar
+  // */
+  // void FastTrackerMP::parallelElementWiseMult(Mat & src, const float scalar, const int batch_size) {
+  //   const int area = src.rows * src.cols;
+  //   #pragma omp parallel for
+  //   for (int idx = 0; idx < area; idx+=batch_size) {
+  //     for (int offset = 0; offset < batch_size; offset++) {
+  //       int h = idx + offset;
+  //       if (h > area) break;
+  //       int i = h / src.cols;
+  //       int j = h % src.cols;
+  //       src.at<float>(i, j) *= scalar;
+  //     }
+  //   }
+  // }
+
   /*
    * Initialization:
    * - creating hann window filter
@@ -73,10 +90,13 @@ namespace cv {
     // create gaussian response
     y=Mat::zeros((int)roi.height,(int)roi.width,CV_32F);
 
+    const float half_height = roi.height/2;
+    const float half_width = roi.width/2;
+    #pragma omp parallel for
     for(int i=0;i<int(roi.height);i++){
       for(int j=0;j<int(roi.width);j++){
         y.at<float>(i,j) =
-                static_cast<float>((i-roi.height/2+1)*(i-roi.height/2+1)+(j-roi.width/2+1)*(j-roi.width/2+1));
+                static_cast<float>((i-half_height+1)*(i-half_height+1)+(j-half_width+1)*(j-half_width+1));
       }
     }
 
@@ -459,7 +479,7 @@ namespace cv {
 
     {
       ZoneScopedN("avg");
-     // #pragma omp parallel for
+    #pragma omp parallel for
     for (int i=0;i<src.channels();i++){
       average[i]=mean(layers_pca[i]);
       layers_pca[i]-=average[i];
@@ -473,9 +493,26 @@ namespace cv {
     pca_data=pca_data.reshape(1,src.rows*src.cols);
     }
     
-    new_cov=1.0/(float)(src.rows*src.cols-1)*(pca_data.t()*pca_data);
-    if(old_cov.rows==0)old_cov=new_cov.clone();
+    // this is the cursed line
+    // TODO OPTIMIZE
+    {
+      ZoneScopedN("new_conv");
+      // take the transpose of a matrix and multiple it by itself
+      auto t = pca_data.t();
+      
+      new_cov = t * pca_data;
+      // cv::Mat new_cov;
+      // parallelMatrixMultiply(t, pca_data, new_cov);
 
+      const float scale = 1.0 / (float)(src.rows * src.cols-1);
+      const int batch_size = 10;
+
+      parallelElementWiseMult(new_cov, scale, batch_size);
+
+      // new_cov=1.0/(float)(src.rows*src.cols-1)*(pca_data.t()*pca_data);
+    }
+    
+    if(old_cov.rows==0)old_cov=new_cov.clone();
     {
       ZoneScopedN("pca");
     // calc PCA
@@ -509,9 +546,21 @@ namespace cv {
    * compress the features
    */
   void inline FastTrackerMP::compress(const Mat proj_matrix, const Mat src, Mat & dest, Mat & data, Mat & compressed) const {
+    {
+    ZoneScopedN("compr_reshape");
     data=src.reshape(1,src.rows*src.cols);
+    }
+    {
+    ZoneScopedN("compr_mult");
+    //std::cout << proj_matrix.rows << "," << proj_matrix.cols << "\n";
+    //std::cout << src.rows << "," << src.cols << "\n";
+    //std::cout << data.rows << "x" << data.cols << " @ " << proj_matrix.rows << "x" << proj_matrix.cols << "\n";
     compressed=data*proj_matrix;
+    }
+    {
+    ZoneScopedN("compr_clone");
     dest=compressed.reshape(proj_matrix.cols,src.rows).clone();
+    }
   }
 
   /*

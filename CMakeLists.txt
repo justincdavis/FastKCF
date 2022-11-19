@@ -8,7 +8,7 @@ find_package(OpenMP REQUIRED)
 # debugging
 # add_link_options(-fsanitize=address)
 
-add_compile_options(-ffast-math -o3 -fopenmp)
+add_compile_options(-ofast -fopenmp -funsafe-loop-optimizations -fipa-pta -fsched2-use-superblocks -mavx -march=skylake)
 add_compile_options(-g)
 
 include_directories(kcfDetect PUBLIC

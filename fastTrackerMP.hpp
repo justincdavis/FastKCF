@@ -6,6 +6,8 @@
 #include <iostream>
 #include <omp.h>
 
+#include "utils.hpp"
+
 namespace cv{
     
 //template <typename T>
@@ -41,6 +43,8 @@ public:
 
 // IMPLEMENTATION laDETAILS
 private:
+    // void parallelElementWiseMult(Mat& src1, const float scalar, const int batch_size);
+
     void createHanningWindow(OutputArray dest, const Size winSize, const int type) const;
     void inline fft2(const Mat src, std::vector<Mat> & dest, std::vector<Mat> & layers_data) const;
     void inline fft2(const Mat src, Mat & dest) const;
