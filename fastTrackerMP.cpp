@@ -101,7 +101,8 @@ namespace cv {
     }
 
     //std::cout << "Run cv::exp" << std::endl;
-    y*=(float)output_sigma;
+    //y*=(float)output_sigma;
+    parallelElementWiseMult(y, output_sigma, 10);
     cv::exp(y,y);
 
     //std::cout << "Perform fft2" << std::endl;
@@ -174,13 +175,21 @@ namespace cv {
       // TODO - we can switch this to run the subwindow extraction in parallel
       // extract and pre-process the patch
       // get non compressed descriptors
+      bool failed = false;
+      //#pragma omp parallel for
       for(unsigned i=0;i<descriptors_npca.size()-extractor_npca.size();i++){
-        if(!getSubWindow(img,roi, features_npca[i], img_Patch, descriptors_npca[i]))return false;
+        if(!getSubWindow(img,roi, features_npca[i], img_Patch, descriptors_npca[i])) failed = true;
       }
+      if(failed) return false;
       //get non-compressed custom descriptors
-      for(unsigned i=0,j=(unsigned)(descriptors_npca.size()-extractor_npca.size());i<extractor_npca.size();i++,j++){
-        if(!getSubWindow(img,roi, features_npca[j], extractor_npca[i]))return false;
+      unsigned j = (unsigned)(descriptors_npca.size()-extractor_npca.size());
+      //#pragma omp parallel for private(j)
+      for(unsigned i=0;i<extractor_npca.size();i++){
+        j++;
+        if(!getSubWindow(img,roi, features_npca[j], extractor_npca[i])) failed = true;
       }
+      if(failed) return false;
+
       if(features_npca.size()>0) {
         ZoneScopedN("merge");
         merge(features_npca,X[1]);
@@ -422,6 +431,7 @@ namespace cv {
   void inline FastTrackerMP::fft2(const Mat src, Mat & dest) const {
     ZoneScopedN("ftmp fft2");
     dft(src,dest,DFT_COMPLEX_OUTPUT);
+    // https://codereview.stackexchange.com/questions/181777/performing-fftw-double2-on-images-of-type-cvmat
   }
 
   void inline FastTrackerMP::fft2(const Mat src, std::vector<Mat> & dest, std::vector<Mat> & layers_data) const {
@@ -773,16 +783,22 @@ namespace cv {
     }
 
     //(xx + yy - 2 * xy) / numel(x)
-    xy=(normX+normY-2*xyf)/(x_data.rows*x_data.cols*x_data.channels());
+    //xy=(normX+normY-2*xyf)/(x_data.rows*x_data.cols*x_data.channels());
+    const double normXY = normX+normY-2;
+    const double normXYDiv = 1.0/(x_data.rows*x_data.cols*x_data.channels());
+    parallelElementWiseMult(xyf, xy, normXY*normXYDiv, 10);
 
     // TODO: check wether we really need thresholding or not
     //threshold(xy,xy,0.0,0.0,THRESH_TOZERO);//max(0, (xx + yy - 2 * xy) / numel(x))
+    {
+      ZoneScopedN("thresholding");
     #pragma omp parallel for private(xy)
     for(int i=0;i<xy.rows;i++){
       for(int j=0;j<xy.cols;j++){
         if(xy.at<float>(i,j)<0.0)
             xy.at<float>(i,j)=0.0;
       }
+    }
     }
 
     float sig=-1.0f/(sigma*sigma);

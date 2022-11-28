@@ -11,6 +11,7 @@
 
 #include "fastTracker.hpp"
 #include "fastTrackerMP.hpp"
+#include "fastTrackerCUDA.hpp"
 #include "fastTrackerMPCUDA.hpp"
 
 #include "Tracy.hpp"
@@ -101,8 +102,10 @@ int main() {
         std::ofstream output_file;
         output_file.open("data/" + path.stem().string() + ".txt");
 
+        auto t = cv::TrackerKCF::create();
         auto tracker = cv::FastTracker::create();
         auto tracker_mp = cv::FastTrackerMP::create();
+        auto tracker_cuda = cv::FastTrackerCUDA::create();
         auto tracker_mp_cuda = cv::FastTrackerMPCUDA::create();
 
         // find all videos
@@ -135,16 +138,23 @@ int main() {
 
                 cv::Rect rect(x, y, w, h);
                 
+                t->init(image, rect);
+
                 updateTracker("BASE", tracker, output_file, frame, image, rect);
                 updateTracker("MP", tracker_mp, output_file, frame, image, rect);
-                updateTracker("MP_CUDA", tracker_mp_cuda, output_file, frame, image, rect);
+                //updateTracker("CUDA", tracker_cuda, output_file, frame, image, rect);
+                //updateTracker("MP_CUDA", tracker_mp_cuda, output_file, frame, image, rect);
             } else {
                 cv::Rect dummy{ 0,0,0,0 };
+
+                bool t_s = t->update(image, dummy);
+
                 auto [success, bb] = updateTracker("BASE", tracker, output_file, frame, image, dummy);
                 auto [success_bb, bb_mp] = updateTracker("MP", tracker_mp, output_file, frame, image, dummy);
-                auto [success_bb_cuda, bb_mp_cuda] = updateTracker("MP_CUDA", tracker_mp_cuda, output_file, frame, image, dummy);
+                //auto [success_cuda, bb_cuda] = updateTracker("CUDA", tracker_cuda, output_file, frame, image, dummy);
+                //auto [success_bb_cuda, bb_mp_cuda] = updateTracker("MP_CUDA", tracker_mp_cuda, output_file, frame, image, dummy);
                 
-                if (!success) {
+                if (!t_s) {
                     break;
                 }
 
@@ -152,9 +162,13 @@ int main() {
                 if (!checkBoxesEqual("MP", bb, bb_mp, frame)) {
                     break;
                 }
-                if (!checkBoxesEqual("MP_CUDA", bb, bb_mp_cuda, frame)) {
-                    break;
-                }
+                // if (!checkBoxesEqual("CUDA", bb, bb_cuda, frame)) {
+                //   break;
+                // }
+                //if (!checkBoxesEqual("MP_CUDA", bb, bb_mp_cuda, frame)) {
+                //    break;
+                //}
+
             }
 
             ++frame;

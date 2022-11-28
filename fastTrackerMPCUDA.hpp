@@ -6,6 +6,8 @@
 #include <iostream>
 #include <omp.h>
 
+#include "utils.hpp"
+
 namespace cv{
     
 //template <typename T>

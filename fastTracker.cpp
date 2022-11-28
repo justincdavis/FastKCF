@@ -2,6 +2,7 @@
 #include <complex>
 #include <cmath>
 #include "colorNames.hpp"
+#include "Tracy.hpp"
 
 #include <opencv2/imgproc.hpp> // INTER_LINEAR_EXACT
 
@@ -555,6 +556,7 @@ namespace cv {
   /* Convert BGR to ColorNames
    */
   void FastTracker::extractCN(Mat patch_data, Mat & cnFeatures) const {
+    ZoneScopedN("ft extractCn");
     Vec3b & pixel = patch_data.at<Vec3b>(0,0);
     unsigned index;
 
@@ -580,6 +582,7 @@ namespace cv {
    */
   void FastTracker::denseGaussKernel(const float sigma, const Mat x_data, const Mat y_data, Mat & k_data,
                                         std::vector<Mat> & layers_data,std::vector<Mat> & xf_data,std::vector<Mat> & yf_data, std::vector<Mat> xyf_v, Mat xy, Mat xyf ) const {
+    ZoneScopedN("ft denseGauss");
     double normX, normY;
 
     fft2(x_data,xf_data,layers_data);
