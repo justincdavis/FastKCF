@@ -25,6 +25,12 @@ namespace cv {
     use_custom_extractor_npca = false;
   }
 
+  bool FastTrackerMP::failure() {
+    // fftw_cleanup_threads();
+    // CLENAUP FFTW stuff
+    return false;
+  }
+
   // /*
   // *  perform elementwise multiplication of a matrix with a scalar
   // */
@@ -52,6 +58,7 @@ namespace cv {
   void FastTrackerMP::init(InputArray image, const Rect& boundingBox)
   {
     ZoneScopedN("ftmp init");
+
     frame=0;
     roi.x = cvRound(boundingBox.x);
     roi.y = cvRound(boundingBox.y);
@@ -175,20 +182,17 @@ namespace cv {
       // TODO - we can switch this to run the subwindow extraction in parallel
       // extract and pre-process the patch
       // get non compressed descriptors
-      bool failed = false;
       //#pragma omp parallel for
       for(unsigned i=0;i<descriptors_npca.size()-extractor_npca.size();i++){
-        if(!getSubWindow(img,roi, features_npca[i], img_Patch, descriptors_npca[i])) failed = true;
+        if(!getSubWindow(img,roi, features_npca[i], img_Patch, descriptors_npca[i])) return failure();
       }
-      if(failed) return false;
       //get non-compressed custom descriptors
       unsigned j = (unsigned)(descriptors_npca.size()-extractor_npca.size());
       //#pragma omp parallel for private(j)
       for(unsigned i=0;i<extractor_npca.size();i++){
         j++;
-        if(!getSubWindow(img,roi, features_npca[j], extractor_npca[i])) failed = true;
+        if(!getSubWindow(img,roi, features_npca[j], extractor_npca[i])) return failure();
       }
-      if(failed) return false;
 
       if(features_npca.size()>0) {
         ZoneScopedN("merge");
@@ -197,12 +201,13 @@ namespace cv {
 
       // get compressed descriptors
       for(unsigned i=0;i<descriptors_pca.size()-extractor_pca.size();i++){
-        if(!getSubWindow(img,roi, features_pca[i], img_Patch, descriptors_pca[i]))return false;
+        if(!getSubWindow(img,roi, features_pca[i], img_Patch, descriptors_pca[i])) return failure();
       }
       //get compressed custom descriptors
       for(unsigned i=0,j=(unsigned)(descriptors_pca.size()-extractor_pca.size());i<extractor_pca.size();i++,j++){
-        if(!getSubWindow(img,roi, features_pca[j], extractor_pca[i]))return false;
+        if(!getSubWindow(img,roi, features_pca[j], extractor_pca[i])) return failure();
       }
+
       if(features_pca.size()>0) {
         ZoneScopedN("merge");
         merge(features_pca,X[0]);
@@ -250,7 +255,7 @@ namespace cv {
       minMaxLoc( response, &minVal, &maxVal, &minLoc, &maxLoc );
       if (maxVal < params.detect_thresh)
       {
-          return false;
+          return failure();
       }
       roi.x+=(maxLoc.x-roi.width/2+1);
       roi.y+=(maxLoc.y-roi.height/2+1);
@@ -267,21 +272,21 @@ namespace cv {
     // extract the patch for learning purpose
     // get non compressed descriptors
     for(unsigned i=0;i<descriptors_npca.size()-extractor_npca.size();i++){
-      if(!getSubWindow(img,roi, features_npca[i], img_Patch, descriptors_npca[i]))return false;
+      if(!getSubWindow(img,roi, features_npca[i], img_Patch, descriptors_npca[i])) return failure();
     }
     //get non-compressed custom descriptors
     for(unsigned i=0,j=(unsigned)(descriptors_npca.size()-extractor_npca.size());i<extractor_npca.size();i++,j++){
-      if(!getSubWindow(img,roi, features_npca[j], extractor_npca[i]))return false;
+      if(!getSubWindow(img,roi, features_npca[j], extractor_npca[i])) return failure();
     }
     if(features_npca.size()>0)merge(features_npca,X[1]);
 
     // get compressed descriptors
     for(unsigned i=0;i<descriptors_pca.size()-extractor_pca.size();i++){
-      if(!getSubWindow(img,roi, features_pca[i], img_Patch, descriptors_pca[i]))return false;
+      if(!getSubWindow(img,roi, features_pca[i], img_Patch, descriptors_pca[i])) return failure();
     }
     //get compressed custom descriptors
     for(unsigned i=0,j=(unsigned)(descriptors_pca.size()-extractor_pca.size());i<extractor_pca.size();i++,j++){
-      if(!getSubWindow(img,roi, features_pca[j], extractor_pca[i]))return false;
+      if(!getSubWindow(img,roi, features_pca[j], extractor_pca[i])) return failure();
     }
     if(features_pca.size()>0)merge(features_pca,X[0]);
 
@@ -431,7 +436,11 @@ namespace cv {
   void inline FastTrackerMP::fft2(const Mat src, Mat & dest) const {
     ZoneScopedN("ftmp fft2");
     dft(src,dest,DFT_COMPLEX_OUTPUT);
+  }
+
+  void inline FastTrackerMP::fftw_fft2(const Mat src, Mat & dest) const {
     // https://codereview.stackexchange.com/questions/181777/performing-fftw-double2-on-images-of-type-cvmat
+    // TODO
   }
 
   void inline FastTrackerMP::fft2(const Mat src, std::vector<Mat> & dest, std::vector<Mat> & layers_data) const {
@@ -444,12 +453,25 @@ namespace cv {
     }
   }
 
+  void inline FastTrackerMP::fftw_fft2(const Mat src, std::vector<Mat> & dest, std::vector<Mat> & layers_data) const {
+    ZoneScopedN("ftmp fft2");
+    split(src, layers_data);
+
+    for(int i=0;i<src.channels();i++){
+      fftw_fft2(layers_data[i],dest[i]);
+    }
+  }
+
   /*
    * simplification of inverse fourier transform function in opencv
    */
   void inline FastTrackerMP::ifft2(const Mat src, Mat & dest) const {
     ZoneScopedN("ftmp ifft2");
     idft(src,dest,DFT_SCALE+DFT_REAL_OUTPUT);
+  }
+
+  void inline FastTrackerMP::fftw_ifft2(const Mat src, Mat & dest) const {
+    // TODO
   }
 
   /*

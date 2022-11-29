@@ -39,6 +39,7 @@ inline void parallelElementWiseMult(cv::Mat & src, cv::Mat & dest, const float s
 
 inline void createFFTW3Image(cv::Mat & src, fftw_complex * & dest, const int height, const int width) {
     int k = 0;
+    #pragma omp parallel for private(k)
     for(int j = 0 ; j < height ; j++ ) {
         for(int i = 0 ; i < width ; i++ ) {
             dest[k][0] = ( double )src.at<float>(j, i);
@@ -57,6 +58,7 @@ inline void readFFTW3Image(fftw_complex * & src, cv::Mat & dest, const int heigh
 
     // copy
     int k = 0;
+    #pragma omp parallel for private(k)
     for(int j = 0 ; j < dest.rows ; j++ ) {
         for(int i = 0 ; i < dest.cols ; i++ ) {
             dest.at<float>(j, i) = src[k][0];
@@ -64,24 +66,3 @@ inline void readFFTW3Image(fftw_complex * & src, cv::Mat & dest, const int heigh
         }
     }
 }
-
-
-// /*
-// *  multiply two dense matrices
-// */
-// inline void parallelMatrixMultiply(const cv::Mat src1, const cv::Mat src2, cv::Mat & dest) {
-//     // perform a transpose on src1 and then run tiled matrix multiplication
-//     std::cout << src1.rows << " " << src1.cols << " " << src2.rows << " " << src2.cols << std::endl;
-//     cv::Mat t = src1 * src2;
-//     std::cout << t.rows << " " << t.cols << std::endl;
-//     dest.resize(src1.cols, src2.rows);
-//     #pragma omp parallel for
-//     for(int i = 0; i < src1.rows; i++) {
-//         for(int k = 0; k < src2.cols; k++) {
-//             float val = src1.at<float>(i, k);
-//             for(int j = 0; j < src1.cols; j++) {
-//                 dest.at<float>(i, j) = val * src2.at<float>(k, j);
-//             }
-//         }
-//     }
-// }

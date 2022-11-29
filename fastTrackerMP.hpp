@@ -5,6 +5,7 @@
 #include <memory>
 #include <iostream>
 #include <omp.h>
+#include <fftw3.h>
 
 #include "utils.hpp"
 
@@ -43,12 +44,14 @@ public:
 
 // IMPLEMENTATION laDETAILS
 private:
-    // void parallelElementWiseMult(Mat& src1, const float scalar, const int batch_size);
+    bool failure();
 
     void createHanningWindow(OutputArray dest, const Size winSize, const int type) const;
+
     void inline fft2(const Mat src, std::vector<Mat> & dest, std::vector<Mat> & layers_data) const;
     void inline fft2(const Mat src, Mat & dest) const;
     void inline ifft2(const Mat src, Mat & dest) const;
+
     void inline pixelWiseMult(const std::vector<Mat> src1, const std::vector<Mat>  src2, std::vector<Mat>  & dest, const int flags, const bool conjB=false) const;
     void inline sumChannels(std::vector<Mat> src, Mat & dest) const;
     void inline updateProjectionMatrix(const Mat src, Mat & old_cov,Mat &  proj_matrix,float pca_rate, int compressed_sz,
@@ -112,6 +115,15 @@ private:
     bool resizeImage; // resize the image whenever needed and the patch size is large
 
     int frame;
+
+    // fftw stuff
+    fftw_complex *data_in;
+    fftw_complex *fft_out;   
+    fftwf_plan plan_forward;
+
+    void inline fftw_fft2(const Mat src, std::vector<Mat> & dest, std::vector<Mat> & layers_data) const;
+    void inline fftw_fft2(const Mat src, Mat & dest) const;
+    void inline fftw_ifft2(const Mat src, Mat & dest) const;
 ///////
 
 public:
@@ -120,6 +132,10 @@ public:
     Params params;
 
     static Ptr<FastTrackerMP> create() {
+        // do fftw allocations here
+        fftw_init_threads();
+        fftw_plan_with_nthreads(omp_get_max_threads());
+
         FastTrackerMP::Params p = FastTrackerMP::Params{};
         return makePtr<FastTrackerMP>(p);
     }

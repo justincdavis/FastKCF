@@ -1,4 +1,4 @@
-.PHONY: all run clean
+.PHONY: all run clean fftw
 
 all:
 	mkdir -p build && cd build && cmake -S ../ -B ./ && make
@@ -8,4 +8,7 @@ run:
 
 clean:
 	rm -rf build
+
+fftw:
+	./make_fftw.sh
 	
