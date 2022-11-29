@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD 20)
 find_package(OpenCV REQUIRED)
 find_package(OpenMP REQUIRED)
 
-set(CMAKE_CXX_FLAGS_RELEASE "-O3 -fno-math-errno -ffinite-math-only") # clang
+# set(CMAKE_CXX_FLAGS_RELEASE "-O3 -fno-math-errno -ffinite-math-only") # clang
 
 find_package(PkgConfig REQUIRED)     
 pkg_check_modules(FFTW IMPORTED_TARGET REQUIRED fftw3)
@@ -16,7 +16,7 @@ endif()
           
 find_library(
         FFTW_DOUBLE_THREADS_LIB
-        NAMES "fftw3_threads"
+        NAMES "fftw3_omp"
         PATHS ${PKG_FFTW_LIBRARY_DIRS} ${LIB_INSTALL_DIR}
         )
           

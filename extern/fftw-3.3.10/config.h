@@ -23,7 +23,7 @@
 /* #undef C_ALLOCA */
 
 /* Define to disable Fortran wrappers. */
-#define DISABLE_FORTRAN 1
+/* #undef DISABLE_FORTRAN */
 
 /* Define to dummy `main' function (if any) required to link to the Fortran
    libraries. */
@@ -31,13 +31,13 @@
 
 /* Define to a macro mangling the given C identifier (in lower and upper
    case), which must not contain underscores, for linking with Fortran. */
-/* #undef F77_FUNC */
+#define F77_FUNC(name,NAME) name ## _
 
 /* As F77_FUNC, but for C identifiers containing underscores. */
-/* #undef F77_FUNC_ */
+#define F77_FUNC_(name,NAME) name ## _
 
 /* Define if F77_FUNC and F77_FUNC_ are equivalent. */
-/* #undef F77_FUNC_EQUIV */
+#define F77_FUNC_EQUIV 1
 
 /* Define if F77 and FC dummy `main' functions are identical. */
 /* #undef FC_DUMMY_MAIN_EQ_F77 */
@@ -92,7 +92,7 @@
 /* #undef HAVE_ARMV8_PMCCNTR_EL0 */
 
 /* Define to enable AVX optimizations. */
-/* #undef HAVE_AVX */
+#define HAVE_AVX 1
 
 /* Define to enable AVX2 optimizations. */
 /* #undef HAVE_AVX2 */
@@ -160,10 +160,10 @@
 #define HAVE_FENV_H 1
 
 /* Define to enable generic (gcc) 128-bit SIMD optimizations. */
-/* #undef HAVE_GENERIC_SIMD128 */
+#define HAVE_GENERIC_SIMD128 1
 
 /* Define to enable generic (gcc) 256-bit SIMD optimizations. */
-/* #undef HAVE_GENERIC_SIMD256 */
+#define HAVE_GENERIC_SIMD256 1
 
 /* Define to 1 if you have the `gethrtime' function. */
 /* #undef HAVE_GETHRTIME */
@@ -226,7 +226,7 @@
 /* #undef HAVE_NEON */
 
 /* Define if OpenMP is enabled */
-/* #undef HAVE_OPENMP */
+#define HAVE_OPENMP 1
 
 /* Define to 1 if you have the `posix_memalign' function. */
 #define HAVE_POSIX_MEMALIGN 1
@@ -286,7 +286,7 @@
 /* #undef HAVE_TANL */
 
 /* Define if we have a threads library. */
-#define HAVE_THREADS 1
+/* #undef HAVE_THREADS */
 
 /* Define to 1 if you have the `time_base_to_time' function. */
 /* #undef HAVE_TIME_BASE_TO_TIME */
@@ -394,7 +394,7 @@
 #define TIME_WITH_SYS_TIME 1
 
 /* Define if we have and are using POSIX threads. */
-#define USING_POSIX_THREADS 1
+/* #undef USING_POSIX_THREADS */
 
 /* Version number of package */
 #define VERSION "3.3.10"
@@ -404,7 +404,7 @@
 
 /* Include g77-compatible wrappers in addition to any other Fortran wrappers.
    */
-/* #undef WITH_G77_WRAPPERS */
+#define WITH_G77_WRAPPERS 1
 
 /* Use our own aligned malloc routine; mainly helpful for Windows systems
    lacking aligned allocation system-library routines. */

@@ -116,10 +116,23 @@ private:
 
     int frame;
 
-    // // fftw stuff
-    // fftw_complex *data_in;
-    // fftw_complex *fft_out;   
-    // fftwf_plan plan_forward;
+    // fftw stuff
+    void inline write_fftw_image(const Mat src, fftw_complex * dest, const int height, const int width) const;
+    void inline read_fftw_image(const fftw_complex * src, Mat & dest, Mat t1, Mat t2, const int height, const int width) const;
+
+    // forward fft
+    fftw_complex *f_in;
+    fftw_complex *f_out;
+    cv::Mat c1;
+    cv::Mat c2;
+    int f_h;
+    int f_w;   
+    fftw_plan f_plan;
+
+    // backward fft
+    fftw_complex *b_in;
+    fftw_complex *b_out;
+    fftw_plan b_plan;
 
     void inline fftw_fft2(const Mat src, std::vector<Mat> & dest, std::vector<Mat> & layers_data) const;
     void inline fftw_fft2(const Mat src, Mat & dest) const;

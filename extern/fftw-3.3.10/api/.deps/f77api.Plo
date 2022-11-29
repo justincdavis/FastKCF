@@ -67,7 +67,8 @@ f77api.lo: f77api.c /usr/include/stdc-predef.h ../api/api.h \
  /usr/include/x86_64-linux-gnu/bits/types/struct_itimerspec.h \
  /usr/include/x86_64-linux-gnu/bits/types/locale_t.h \
  /usr/include/x86_64-linux-gnu/bits/types/__locale_t.h ../rdft/rdft.h \
- ../rdft/codelet-rdft.h ../dft/dft.h ../dft/codelet-dft.h ../api/x77.h
+ ../rdft/codelet-rdft.h ../dft/dft.h ../dft/codelet-dft.h ../api/x77.h \
+ f77funcs.h
 
 /usr/include/stdc-predef.h:
 
@@ -238,3 +239,5 @@ f77api.lo: f77api.c /usr/include/stdc-predef.h ../api/api.h \
 ../dft/codelet-dft.h:
 
 ../api/x77.h:
+
+f77funcs.h:

@@ -162,8 +162,8 @@ libfftw3_omp_la_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC \
 #am_libfftw3_omp_la_rpath =  \
 #	-rpath \
 #	$(libdir)
-##am_libfftw3_omp_la_rpath =  \
-##	-rpath $(libdir)
+am_libfftw3_omp_la_rpath =  \
+	-rpath $(libdir)
 libfftw3_threads_la_DEPENDENCIES =  \
 	../libfftw3.la
 am_libfftw3_threads_la_OBJECTS =  \
@@ -182,9 +182,9 @@ libfftw3_threads_la_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC \
 	$(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=link $(CCLD) \
 	$(libfftw3_threads_la_CFLAGS) $(CFLAGS) \
 	$(libfftw3_threads_la_LDFLAGS) $(LDFLAGS) -o $@
-am_libfftw3_threads_la_rpath =  \
-	-rpath $(libdir)
-#am_libfftw3_threads_la_rpath =
+#am_libfftw3_threads_la_rpath =  \
+#	-rpath $(libdir)
+##am_libfftw3_threads_la_rpath =
 AM_V_P = $(am__v_P_$(V))
 am__v_P_ = $(am__v_P_$(AM_DEFAULT_VERBOSITY))
 am__v_P_0 = false
@@ -263,7 +263,7 @@ AUTOMAKE = ${SHELL} '/home/jcdavis/FastKCF/extern/fftw-3.3.10/missing' automake-
 AVX2_CFLAGS = 
 AVX512_CFLAGS = 
 AVX_128_FMA_CFLAGS = 
-AVX_CFLAGS = 
+AVX_CFLAGS = -mavx
 AWK = mawk
 CC = gcc
 CCDEPMODE = depmode=gcc3
@@ -284,10 +284,10 @@ ECHO_N = -n
 ECHO_T = 
 EGREP = /usr/bin/grep -E
 EXEEXT = 
-F77 = 
-FFLAGS = 
+F77 = f77
+FFLAGS = -g -O2
 FGREP = /usr/bin/grep -F
-FLIBS = 
+FLIBS =  -L/usr/lib/gcc/x86_64-linux-gnu/9 -L/usr/lib/gcc/x86_64-linux-gnu/9/../../../x86_64-linux-gnu -L/usr/lib/gcc/x86_64-linux-gnu/9/../../../../lib -L/lib/x86_64-linux-gnu -L/lib/../lib -L/usr/lib/x86_64-linux-gnu -L/usr/lib/../lib -L/usr/lib/gcc/x86_64-linux-gnu/9/../../.. -lgfortran -lm -lquadmath
 GREP = /usr/bin/grep
 INDENT = 
 INSTALL = /usr/bin/install -c
@@ -319,7 +319,7 @@ NMEDIT =
 OBJDUMP = objdump
 OBJEXT = o
 OCAMLBUILD = 
-OPENMP_CFLAGS = 
+OPENMP_CFLAGS = -fopenmp
 OTOOL = 
 OTOOL64 = 
 PACKAGE = fftw
@@ -333,8 +333,8 @@ PATH_SEPARATOR = :
 POW_LIB = 
 PRECISION = d
 PREC_SUFFIX = 
-PTHREAD_CC = gcc
-PTHREAD_CFLAGS = -pthread
+PTHREAD_CC = 
+PTHREAD_CFLAGS = 
 PTHREAD_LIBS = 
 RANLIB = ranlib
 SED = /usr/bin/sed
@@ -344,7 +344,7 @@ SHELL = /bin/bash
 SSE2_CFLAGS = 
 STACK_ALIGN_CFLAGS = 
 STRIP = strip
-THREADLIBS =  
+THREADLIBS = 
 VERSION = 3.3.10
 VSX_CFLAGS = 
 abs_builddir = /home/jcdavis/FastKCF/extern/fftw-3.3.10/threads
@@ -354,7 +354,7 @@ abs_top_srcdir = /home/jcdavis/FastKCF/extern/fftw-3.3.10
 ac_ct_AR = ar
 ac_ct_CC = gcc
 ac_ct_DUMPBIN = 
-ac_ct_F77 = 
+ac_ct_F77 = f77
 acx_pthread_config = 
 am__include = include
 am__leading_dot = .
@@ -404,11 +404,11 @@ top_builddir = ..
 top_srcdir = ..
 AM_CPPFLAGS = -I $(top_srcdir)
 AM_CFLAGS = $(STACK_ALIGN_CFLAGS)
-FFTWOMPLIB = 
-#FFTWOMPLIB = libfftw3_omp.la
-#noinst_LTLIBRARIES = libfftw3_threads.la
-lib_LTLIBRARIES = libfftw3_threads.la $(FFTWOMPLIB)
-#lib_LTLIBRARIES = $(FFTWOMPLIB)
+#FFTWOMPLIB = 
+FFTWOMPLIB = libfftw3_omp.la
+##noinst_LTLIBRARIES = libfftw3_threads.la
+#lib_LTLIBRARIES = libfftw3_threads.la $(FFTWOMPLIB)
+lib_LTLIBRARIES = $(FFTWOMPLIB)
 libfftw3_threads_la_SOURCES = api.c conf.c threads.c	\
 threads.h dft-vrank-geq1.c ct.c rdft-vrank-geq1.c hc2hc.c		\
 vrank-geq1-rdft2.c f77api.c f77funcs.h

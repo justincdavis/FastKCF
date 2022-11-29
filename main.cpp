@@ -5,6 +5,8 @@
 #include <vector>
 #include <chrono>
 #include <string_view>
+#include <functional>
+#include <numeric>
 
 #include <opencv2/videoio.hpp>
 #include <opencv2/tracking.hpp>
@@ -16,6 +18,72 @@
 
 #include "Tracy.hpp"
 
+#include "utils.hpp"
+
+void test_fftw(){
+    const int max_dim = 1000;
+    const int min_dim = 100;
+
+    for(int h = min_dim; h < max_dim; h++){
+        for(int w = min_dim; w < max_dim; w++){
+            auto height = h;
+            auto width = w;
+            // vector of times
+            std::vector<double> fftw_times;
+            std::vector<double> cv_times;
+            cv::Mat y = cv::Mat::zeros((int)height,(int)width,CV_32F);
+
+            const float half_height = height/2;
+            const float half_width = width/2;
+            #pragma omp parallel for
+            for(int i=0;i<int(height);i++){
+            for(int j=0;j<int(width);j++){
+                y.at<float>(i,j) =
+                        static_cast<float>((i-half_height+1)*(i-half_height+1)+(j-half_width+1)*(j-half_width+1));
+            }
+            }
+            auto src = y;
+            auto dst = src.clone();
+            fftw_init_threads();
+            fftw_plan_with_nthreads(omp_get_max_threads());
+            // create fftw3 image
+            fftw_complex *in, *out;
+            in = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * src.rows * src.cols);
+            out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * src.rows * src.cols);
+            
+            // create fftw3 plan
+            fftw_plan plan = fftw_plan_dft_2d(src.rows, src.cols, in, out, FFTW_FORWARD, FFTW_EXHAUSTIVE);
+
+            for(int t = 0; t < 100; t++){
+                // time the fftw_execute call
+                createFFTW3Image(src, in);
+                auto start = std::chrono::high_resolution_clock::now();
+                fftw_execute(plan);
+                auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() - start).count();
+                fftw_times.push_back(duration);
+
+                // time the cv::dft call
+                start = std::chrono::high_resolution_clock::now();
+                cv::dft(src, dst);
+                duration = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() - start).count();
+                cv_times.push_back(duration);
+            }
+
+            // free memory
+            fftw_destroy_plan(plan);
+            fftw_free(in);
+            fftw_free(out);
+
+            // compare averages of fftw_times and cv_times
+            double fftw_avg = std::accumulate(fftw_times.begin(), fftw_times.end(), 0.0) / fftw_times.size();
+            double cv_avg = std::accumulate(cv_times.begin(), cv_times.end(), 0.0) / cv_times.size();
+            std::cout << "Computing for size: " << h << " x " << w << std::endl;
+            std::cout << "  FFTW avg: " << fftw_avg << "ms" << std::endl;
+            std::cout << "  CV avg:   " << cv_avg << "ms" << std::endl;
+            std::cout << "  FFTW is " << cv_avg / fftw_avg << " times faster than CV" << std::endl;
+        }
+    }
+}
 
 std::vector<int> getBoundingBox(std::string file){
     std::ifstream truth(file);
@@ -77,6 +145,7 @@ bool checkBoxesEqual(std::string name, const cv::Rect& a, const cv::Rect& b, int
 }
 
 int main() {
+    // test_fftw();
     // create a filesystem instance
     std::string path = "test/";
     std::vector<std::filesystem::path> files;
@@ -118,13 +187,8 @@ int main() {
             cv::Mat image;
             capture.retrieve(image);
             if (image.empty())
-                break;
-
-            // // test the fftw call
-            // cv::Mat dummy;
-            // dummy = image.clone();
-            // fftw_fft2(image, dummy);
-
+                break;// test the fftw call
+            
             if (frame == 0) {
                 // read a cv::Rect from a text file with the format x,y,w,h
                 // trim off the file and get the directory

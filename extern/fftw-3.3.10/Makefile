@@ -304,7 +304,7 @@ AUTOMAKE = ${SHELL} '/home/jcdavis/FastKCF/extern/fftw-3.3.10/missing' automake-
 AVX2_CFLAGS = 
 AVX512_CFLAGS = 
 AVX_128_FMA_CFLAGS = 
-AVX_CFLAGS = 
+AVX_CFLAGS = -mavx
 AWK = mawk
 CC = gcc
 CCDEPMODE = depmode=gcc3
@@ -325,10 +325,10 @@ ECHO_N = -n
 ECHO_T = 
 EGREP = /usr/bin/grep -E
 EXEEXT = 
-F77 = 
-FFLAGS = 
+F77 = f77
+FFLAGS = -g -O2
 FGREP = /usr/bin/grep -F
-FLIBS = 
+FLIBS =  -L/usr/lib/gcc/x86_64-linux-gnu/9 -L/usr/lib/gcc/x86_64-linux-gnu/9/../../../x86_64-linux-gnu -L/usr/lib/gcc/x86_64-linux-gnu/9/../../../../lib -L/lib/x86_64-linux-gnu -L/lib/../lib -L/usr/lib/x86_64-linux-gnu -L/usr/lib/../lib -L/usr/lib/gcc/x86_64-linux-gnu/9/../../.. -lgfortran -lm -lquadmath
 GREP = /usr/bin/grep
 INDENT = 
 INSTALL = /usr/bin/install -c
@@ -360,7 +360,7 @@ NMEDIT =
 OBJDUMP = objdump
 OBJEXT = o
 OCAMLBUILD = 
-OPENMP_CFLAGS = 
+OPENMP_CFLAGS = -fopenmp
 OTOOL = 
 OTOOL64 = 
 PACKAGE = fftw
@@ -374,8 +374,8 @@ PATH_SEPARATOR = :
 POW_LIB = 
 PRECISION = d
 PREC_SUFFIX = 
-PTHREAD_CC = gcc
-PTHREAD_CFLAGS = -pthread
+PTHREAD_CC = 
+PTHREAD_CFLAGS = 
 PTHREAD_LIBS = 
 RANLIB = ranlib
 SED = /usr/bin/sed
@@ -385,7 +385,7 @@ SHELL = /bin/bash
 SSE2_CFLAGS = 
 STACK_ALIGN_CFLAGS = 
 STRIP = strip
-THREADLIBS =  
+THREADLIBS = 
 VERSION = 3.3.10
 VSX_CFLAGS = 
 abs_builddir = /home/jcdavis/FastKCF/extern/fftw-3.3.10
@@ -395,7 +395,7 @@ abs_top_srcdir = /home/jcdavis/FastKCF/extern/fftw-3.3.10
 ac_ct_AR = ar
 ac_ct_CC = gcc
 ac_ct_DUMPBIN = 
-ac_ct_F77 = 
+ac_ct_F77 = f77
 acx_pthread_config = 
 am__include = include
 am__leading_dot = .
@@ -484,8 +484,8 @@ SIMD_LIBS = simd-support/libsimd_support.la
 #SSE2_LIBS = dft/simd/sse2/libdft_sse2_codelets.la	\
 #rdft/simd/sse2/librdft_sse2_codelets.la
 
-#AVX_LIBS = dft/simd/avx/libdft_avx_codelets.la	\
-#rdft/simd/avx/librdft_avx_codelets.la
+AVX_LIBS = dft/simd/avx/libdft_avx_codelets.la	\
+rdft/simd/avx/librdft_avx_codelets.la
 
 #AVX_128_FMA_LIBS = dft/simd/avx-128-fma/libdft_avx_128_fma_codelets.la \
 #rdft/simd/avx-128-fma/librdft_avx_128_fma_codelets.la
@@ -510,13 +510,13 @@ SIMD_LIBS = simd-support/libsimd_support.la
 #NEON_LIBS = dft/simd/neon/libdft_neon_codelets.la	\
 #rdft/simd/neon/librdft_neon_codelets.la
 
-#GENERIC_SIMD128_LIBS = dft/simd/generic-simd128/libdft_generic_simd128_codelets.la \
-#rdft/simd/generic-simd128/librdft_generic_simd128_codelets.la
+GENERIC_SIMD128_LIBS = dft/simd/generic-simd128/libdft_generic_simd128_codelets.la \
+rdft/simd/generic-simd128/librdft_generic_simd128_codelets.la
 
-#GENERIC_SIMD256_LIBS = dft/simd/generic-simd256/libdft_generic_simd256_codelets.la      \
-#rdft/simd/generic-simd256/librdft_generic_simd256_codelets.la
+GENERIC_SIMD256_LIBS = dft/simd/generic-simd256/libdft_generic_simd256_codelets.la      \
+rdft/simd/generic-simd256/librdft_generic_simd256_codelets.la
 
-#COMBINED_THREADLIBS = threads/libfftw3_threads.la
+##COMBINED_THREADLIBS = threads/libfftw3_threads.la
 libfftw3_la_SOURCES = 
 libfftw3_la_LIBADD = \
 	kernel/libkernel.la				\

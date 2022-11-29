@@ -195,16 +195,16 @@ am__objects_18 = $(am__objects_1) $(am__objects_2) $(am__objects_3) \
 	$(am__objects_13) $(am__objects_14) $(am__objects_15) \
 	$(am__objects_16) $(am__objects_17)
 am__objects_19 = $(am__objects_18) genus.lo codlist.lo
-#am__objects_20 = $(am__objects_19)
-#am_libdft_generic_simd256_codelets_la_OBJECTS =  \
-#	$(am__objects_20)
+am__objects_20 = $(am__objects_19)
+am_libdft_generic_simd256_codelets_la_OBJECTS =  \
+	$(am__objects_20)
 libdft_generic_simd256_codelets_la_OBJECTS =  \
 	$(am_libdft_generic_simd256_codelets_la_OBJECTS)
 AM_V_lt = $(am__v_lt_$(V))
 am__v_lt_ = $(am__v_lt_$(AM_DEFAULT_VERBOSITY))
 am__v_lt_0 = --silent
 am__v_lt_1 = 
-#am_libdft_generic_simd256_codelets_la_rpath =
+am_libdft_generic_simd256_codelets_la_rpath =
 AM_V_P = $(am__v_P_$(V))
 am__v_P_ = $(am__v_P_$(AM_DEFAULT_VERBOSITY))
 am__v_P_0 = false
@@ -368,7 +368,7 @@ AUTOMAKE = ${SHELL} '/home/jcdavis/FastKCF/extern/fftw-3.3.10/missing' automake-
 AVX2_CFLAGS = 
 AVX512_CFLAGS = 
 AVX_128_FMA_CFLAGS = 
-AVX_CFLAGS = 
+AVX_CFLAGS = -mavx
 AWK = mawk
 CC = gcc
 CCDEPMODE = depmode=gcc3
@@ -389,10 +389,10 @@ ECHO_N = -n
 ECHO_T = 
 EGREP = /usr/bin/grep -E
 EXEEXT = 
-F77 = 
-FFLAGS = 
+F77 = f77
+FFLAGS = -g -O2
 FGREP = /usr/bin/grep -F
-FLIBS = 
+FLIBS =  -L/usr/lib/gcc/x86_64-linux-gnu/9 -L/usr/lib/gcc/x86_64-linux-gnu/9/../../../x86_64-linux-gnu -L/usr/lib/gcc/x86_64-linux-gnu/9/../../../../lib -L/lib/x86_64-linux-gnu -L/lib/../lib -L/usr/lib/x86_64-linux-gnu -L/usr/lib/../lib -L/usr/lib/gcc/x86_64-linux-gnu/9/../../.. -lgfortran -lm -lquadmath
 GREP = /usr/bin/grep
 INDENT = 
 INSTALL = /usr/bin/install -c
@@ -424,7 +424,7 @@ NMEDIT =
 OBJDUMP = objdump
 OBJEXT = o
 OCAMLBUILD = 
-OPENMP_CFLAGS = 
+OPENMP_CFLAGS = -fopenmp
 OTOOL = 
 OTOOL64 = 
 PACKAGE = fftw
@@ -438,8 +438,8 @@ PATH_SEPARATOR = :
 POW_LIB = 
 PRECISION = d
 PREC_SUFFIX = 
-PTHREAD_CC = gcc
-PTHREAD_CFLAGS = -pthread
+PTHREAD_CC = 
+PTHREAD_CFLAGS = 
 PTHREAD_LIBS = 
 RANLIB = ranlib
 SED = /usr/bin/sed
@@ -449,7 +449,7 @@ SHELL = /bin/bash
 SSE2_CFLAGS = 
 STACK_ALIGN_CFLAGS = 
 STRIP = strip
-THREADLIBS =  
+THREADLIBS = 
 VERSION = 3.3.10
 VSX_CFLAGS = 
 abs_builddir = /home/jcdavis/FastKCF/extern/fftw-3.3.10/dft/simd/generic-simd256
@@ -459,7 +459,7 @@ abs_top_srcdir = /home/jcdavis/FastKCF/extern/fftw-3.3.10
 ac_ct_AR = ar
 ac_ct_CC = gcc
 ac_ct_DUMPBIN = 
-ac_ct_F77 = 
+ac_ct_F77 = f77
 acx_pthread_config = 
 am__include = include
 am__leading_dot = .
@@ -590,9 +590,9 @@ $(T2F) $(T3F) $(T1BU) $(T1B) $(T2B) $(T3B) $(T1S) $(T2S) $(Q1F) $(Q1B)
 
 AM_CPPFLAGS = -I $(top_srcdir)
 EXTRA_DIST = $(SIMD_CODELETS) genus.c codlist.c
-#BUILT_SOURCES = $(EXTRA_DIST)
-#noinst_LTLIBRARIES = libdft_generic_simd256_codelets.la
-#libdft_generic_simd256_codelets_la_SOURCES = $(BUILT_SOURCES)
+BUILT_SOURCES = $(EXTRA_DIST)
+noinst_LTLIBRARIES = libdft_generic_simd256_codelets.la
+libdft_generic_simd256_codelets_la_SOURCES = $(BUILT_SOURCES)
 all: $(BUILT_SOURCES)
 	$(MAKE) $(AM_MAKEFLAGS) all-am
 

@@ -50,49 +50,74 @@ inline void createFFTW3Image(cv::Mat & src, fftw_complex * & dest, const int hei
     }
 }
 
-inline void readFFTW3Image(fftw_complex * & src, cv::Mat & dest, const int height, const int width){
-    // normalize
-    const double c = (double)(height * width);
-    // for(int i = 0 ; i < dest.rows * dest.cols ; i++ ) {
-    //     src[i][0] /= c;
-    // }
-
-    cv::Mat t1 = cv::Mat::zeros(height, width, CV_32FC1);
-    cv::Mat t2 = cv::Mat::zeros(height, width, CV_32FC1);
-    // copy
-    int k = 0;
-    // #pragma omp parallel for shared(k)
-    for(int j = 0 ; j < dest.rows ; j++ ) {
-        for(int i = 0 ; i < dest.cols ; i++ ) {
-            t1.at<float>(j, i) = src[k][0] / c;
-            t2.at<float>(j, i) = src[k][1] / c;
-            k++;
-        }
-    }
-
-    cv::merge(std::vector<cv::Mat>{t1, t2}, dest);
+inline void createFFTW3Image(cv::Mat & src, fftw_complex * & dest) {
+    createFFTW3Image(src, dest, src.rows, src.cols);
 }
 
-inline void naive_fftw_fft2(cv::Mat src, cv::Mat & dest) {
-    // create fftw3 image
-    fftw_complex *in, *out;
-    in = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * src.rows * src.cols);
-    out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * src.rows * src.cols);
+// void readFFTW3Image(fftw_complex * & src, cv::Mat & dest, const int height, const int width){
+//     cv::Mat t1 = cv::Mat::zeros(height, width, CV_32FC1);
+//     cv::Mat t2 = cv::Mat::zeros(height, width, CV_32FC1);
+//     readFFTW3Image2(src, dest, t1, t2, height, width);
+// }
 
-    createFFTW3Image(src, in, src.rows, src.cols);
+// inline void readFFTW3Image(fftw_complex * & src, cv::Mat & dest, cv::Mat & t1, cv::Mat & t2, const int height, const int width){
+//     // normalize
+//     const double c = (double)(height * width);
+//     // for(int i = 0 ; i < dest.rows * dest.cols ; i++ ) {
+//     //     src[i][0] /= c;
+//     // }
+//     // copy
+//     int k = 0;
+//     // #pragma omp parallel for shared(k)
+//     for(int j = 0 ; j < dest.rows ; j++ ) {
+//         for(int i = 0 ; i < dest.cols ; i++ ) {
+//             t1.at<float>(j, i) = src[k][0] / c;
+//             k++;
+//         }
+//     }
+//     k = 0;
+//     // #pragma omp parallel for shared(k)
+//     for(int j = 0 ; j < dest.rows ; j++ ) {
+//         for(int i = 0 ; i < dest.cols ; i++ ) {
+//             t2.at<float>(j, i) = src[k][1] / c;
+//             k++;
+//         }
+//     }
+
+//     cv::merge(std::vector<cv::Mat>{t1, t2}, dest);
+// }
+
+// inline void naive_fftw_fft2(cv::Mat src, cv::Mat & dest) {
+//     // create fftw3 image
+//     fftw_complex *in, *out;
+//     in = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * src.rows * src.cols);
+//     out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * src.rows * src.cols);
     
-    // create fftw3 plan
-    fftw_plan plan = fftw_plan_dft_2d(src.rows, src.cols, in, out, FFTW_FORWARD, FFTW_ESTIMATE);
+//     // create fftw3 plan
+//     fftw_plan plan = fftw_plan_dft_2d(src.rows, src.cols, in, out, FFTW_FORWARD, FFTW_ESTIMATE);
 
-    // execute fftw3 plan
-    fftw_execute(plan);
+//     createFFTW3Image(src, in, src.rows, src.cols);
 
-    // read fftw3 image
-    // dest = src.clone();
-    readFFTW3Image(out, dest, src.rows, src.cols);
+//     // execute fftw3 plan
+//     fftw_execute(plan);
 
-    // free memory
-    fftw_destroy_plan(plan);
-    fftw_free(in);
-    fftw_free(out);
-}
+//     // read fftw3 image
+//     // dest = src.clone();
+//     readFFTW3Image(out, dest, src.rows, src.cols);
+
+//     // free memory
+//     fftw_destroy_plan(plan);
+//     fftw_free(in);
+//     fftw_free(out);
+// }
+
+// inline void naive_fftw_fft2(cv::Mat src, cv::Mat & dest, fftw_complex* in, fftw_complex* out, fftw_plan plan) {
+//     // create fftw3 image
+//     createFFTW3Image(src, in, src.rows, src.cols);
+    
+//     // execute fftw3 plan
+//     fftw_execute(plan);
+
+//     // read fftw3 image
+//     readFFTW3Image(out, dest, src.rows, src.cols);
+// }
