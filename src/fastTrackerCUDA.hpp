@@ -8,6 +8,8 @@
 
 #include "utils.hpp"
 
+#include <opencv2/cudaarithm.hpp>
+
 namespace cv{
     
 //template <typename T>

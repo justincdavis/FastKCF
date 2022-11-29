@@ -159,11 +159,11 @@ libfftw3_omp_la_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC \
 	$(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=link $(CCLD) \
 	$(libfftw3_omp_la_CFLAGS) $(CFLAGS) \
 	$(libfftw3_omp_la_LDFLAGS) $(LDFLAGS) -o $@
+##am_libfftw3_omp_la_rpath =  \
+##	-rpath \
+##	$(libdir)
 #am_libfftw3_omp_la_rpath =  \
-#	-rpath \
-#	$(libdir)
-am_libfftw3_omp_la_rpath =  \
-	-rpath $(libdir)
+#	-rpath $(libdir)
 libfftw3_threads_la_DEPENDENCIES =  \
 	../libfftw3.la
 am_libfftw3_threads_la_OBJECTS =  \
@@ -263,8 +263,8 @@ AUTOMAKE = ${SHELL} '/home/jcdavis/FastKCF/extern/fftw-3.3.10/missing' automake-
 AVX2_CFLAGS = 
 AVX512_CFLAGS = 
 AVX_128_FMA_CFLAGS = 
-AVX_CFLAGS = -mavx
-AWK = mawk
+AVX_CFLAGS = 
+AWK = gawk
 CC = gcc
 CCDEPMODE = depmode=gcc3
 CFLAGS = -O3 -fomit-frame-pointer -mtune=native -malign-double -fstrict-aliasing -fno-schedule-insns
@@ -319,7 +319,7 @@ NMEDIT =
 OBJDUMP = objdump
 OBJEXT = o
 OCAMLBUILD = 
-OPENMP_CFLAGS = -fopenmp
+OPENMP_CFLAGS = 
 OTOOL = 
 OTOOL64 = 
 PACKAGE = fftw
@@ -404,8 +404,8 @@ top_builddir = ..
 top_srcdir = ..
 AM_CPPFLAGS = -I $(top_srcdir)
 AM_CFLAGS = $(STACK_ALIGN_CFLAGS)
-#FFTWOMPLIB = 
-FFTWOMPLIB = libfftw3_omp.la
+FFTWOMPLIB = 
+#FFTWOMPLIB = libfftw3_omp.la
 ##noinst_LTLIBRARIES = libfftw3_threads.la
 #lib_LTLIBRARIES = libfftw3_threads.la $(FFTWOMPLIB)
 lib_LTLIBRARIES = $(FFTWOMPLIB)

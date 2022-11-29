@@ -1,14 +1,11 @@
-#include "fastTrackerCUDA.hpp"
+#include "fastTrackerMP.hpp"
 #include <complex>
 #include <cmath>
 #include "colorNames.hpp"
 
 #include <opencv2/imgproc.hpp> // INTER_LINEAR_EXACT
-#include <opencv2/core/cuda.hpp>
-#include <opencv2/cudaarithm.hpp>
-// include header for cuda dft 
-#include <opencv2/cudafeatures2d.hpp>
 
+#include "Tracy.hpp"
 
 namespace cv {
 //inline namespace tracking {
@@ -20,13 +17,36 @@ namespace cv {
 //    return std::make_shared<T>();
 //}
 
-  FastTrackerCUDA::FastTrackerCUDA(FastTrackerCUDA::Params p) :
+  FastTrackerMP::FastTrackerMP(FastTrackerMP::Params p) :
     params(p)
   {
     resizeImage = false;
     use_custom_extractor_pca = false;
     use_custom_extractor_npca = false;
   }
+
+  bool FastTrackerMP::failure() {
+    fftw_cleanup_threads();
+    fftw_cleanup();
+    return false;
+  }
+
+  // /*
+  // *  perform elementwise multiplication of a matrix with a scalar
+  // */
+  // void FastTrackerMP::parallelElementWiseMult(Mat & src, const float scalar, const int batch_size) {
+  //   const int area = src.rows * src.cols;
+  //   #pragma omp parallel for
+  //   for (int idx = 0; idx < area; idx+=batch_size) {
+  //     for (int offset = 0; offset < batch_size; offset++) {
+  //       int h = idx + offset;
+  //       if (h > area) break;
+  //       int i = h / src.cols;
+  //       int j = h % src.cols;
+  //       src.at<float>(i, j) *= scalar;
+  //     }
+  //   }
+  // }
 
   /*
    * Initialization:
@@ -35,17 +55,41 @@ namespace cv {
    * - creating a gaussian response for the training ground-truth
    * - perform FFT to the gaussian response
    */
-  void FastTrackerCUDA::init(InputArray image, const Rect& boundingBox)
+  void FastTrackerMP::init(InputArray image, const Rect& boundingBox)
   {
-    int device =cuda::getCudaEnabledDeviceCount();
-    int getD = cuda::getDevice();
-    cuda::setDevice(getD);
+    ZoneScopedN("ftmp init");
 
     frame=0;
     roi.x = cvRound(boundingBox.x);
     roi.y = cvRound(boundingBox.y);
     roi.width = cvRound(boundingBox.width);
     roi.height = cvRound(boundingBox.height);
+
+    // // print out the roi dimensions
+    // std::cout << "ROI HEIGHT: " << roi.height << ", ROI WIDTH: " << roi.width << std::endl;
+
+    // // enable fftw threads
+    // fftw_init_threads();
+    // fftw_plan_with_nthreads(omp_get_max_threads());
+
+    // // // import wisdom
+    // // int success = fftw_import_system_wisdom();
+    // // // if (success == 0) {
+    // // //   std::cerr << "WARNING: FFTW system wisdom import failed" << std::endl;
+    // // // }
+    // // success = fftw_import_wisdom_from_filename("wisdom");
+    // // if (success == 0) {
+    // //   std::cerr << "WARNING: FFTW local wisdom import failed" << std::endl;
+    // // }
+
+    // // generate fftw plan
+    // f_in = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * roi.width * roi.height);
+    // f_out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * roi.width * roi.height);
+    // c1 = cv::Mat::zeros(roi.height, roi.width, CV_32FC1);
+    // c2 = cv::Mat::zeros(roi.height, roi.width, CV_32FC1);
+    // f_h = roi.height;
+    // f_w = roi.width;
+    // f_plan = fftw_plan_dft_2d(f_h, f_w, f_in, f_out, FFTW_FORWARD, FFTW_PATIENT);
 
     //calclulate output sigma
     output_sigma=std::sqrt(static_cast<float>(roi.width*roi.height))*params.output_sigma_factor;
@@ -78,27 +122,37 @@ namespace cv {
     //std::cout << "Creating the gaussian response" << std::endl;
     // create gaussian response
     y=Mat::zeros((int)roi.height,(int)roi.width,CV_32F);
+
+    const float half_height = roi.height/2;
+    const float half_width = roi.width/2;
+    #pragma omp parallel for
     for(int i=0;i<int(roi.height);i++){
       for(int j=0;j<int(roi.width);j++){
         y.at<float>(i,j) =
-                static_cast<float>((i-roi.height/2+1)*(i-roi.height/2+1)+(j-roi.width/2+1)*(j-roi.width/2+1));
+                static_cast<float>((i-half_height+1)*(i-half_height+1)+(j-half_width+1)*(j-half_width+1));
       }
     }
 
     //std::cout << "Run cv::exp" << std::endl;
-    y*=(float)output_sigma;
+    //y*=(float)output_sigma;
+    
+    // can move into above loop?
+    parallelElementWiseMult(y, output_sigma, 10);
+
     cv::exp(y,y);
 
     //std::cout << "Perform fft2" << std::endl;
     // perform fourier transfor to the gaussian response
-    fft2(y,yf);
+
+    // naive_fftw_fft2(y,yf);
+    fft2(y, yf);
 
     //std::cout << "Disable ColorNames for grayscale images" << std::endl;
     if (image.channels() == 1) { // disable CN for grayscale images
       params.desc_pca &= ~(CN);
       params.desc_npca &= ~(CN);
     }
-    //model = makePtr<FastTrackerCUDAModel>();
+    //model = makePtr<FastTrackerMPModel>();
 
     //std::cout << "Record the non-compressed descriptors" << std::endl;
     // record the non-compressed descriptors
@@ -130,54 +184,69 @@ namespace cv {
                      image.cols() / (resizeImage ? 2 : 1),
                      image.rows() / (resizeImage ? 2 : 1));
     CV_Assert(!(roi & image_roi).empty());
-
-    // setup OPENCV CUDA STUFF HERE
-
   }
 
   /*
    * Main part of the KCF algorithm
    */
-  bool FastTrackerCUDA::update(InputArray image, Rect& boundingBoxResult)
+  bool FastTrackerMP::update(InputArray image, Rect& boundingBoxResult)
   {
+    ZoneScopedN("ftmp update");
     double minVal, maxVal;	// min-max response
     Point minLoc,maxLoc;	// min-max location
 
     CV_Assert(image.channels() == 1 || image.channels() == 3);
 
     Mat img;
+    {
+      ZoneScopedN("resize");
     // resize the image whenever needed
     if (resizeImage)
         resize(image, img, Size(image.cols()/2, image.rows()/2), 0, 0, INTER_LINEAR_EXACT);
     else
         image.copyTo(img);
+    }
 
     // detection part
     if(frame>0){
 
+      // TODO - we can switch this to run the subwindow extraction in parallel
       // extract and pre-process the patch
       // get non compressed descriptors
+      //#pragma omp parallel for
       for(unsigned i=0;i<descriptors_npca.size()-extractor_npca.size();i++){
-        if(!getSubWindow(img,roi, features_npca[i], img_Patch, descriptors_npca[i]))return false;
+        if(!getSubWindow(img,roi, features_npca[i], img_Patch, descriptors_npca[i])) return failure();
       }
       //get non-compressed custom descriptors
-      for(unsigned i=0,j=(unsigned)(descriptors_npca.size()-extractor_npca.size());i<extractor_npca.size();i++,j++){
-        if(!getSubWindow(img,roi, features_npca[j], extractor_npca[i]))return false;
+      unsigned j = (unsigned)(descriptors_npca.size()-extractor_npca.size());
+      //#pragma omp parallel for private(j)
+      for(unsigned i=0;i<extractor_npca.size();i++){
+        j++;
+        if(!getSubWindow(img,roi, features_npca[j], extractor_npca[i])) return failure();
       }
-      if(features_npca.size()>0)merge(features_npca,X[1]);
+
+      if(features_npca.size()>0) {
+        ZoneScopedN("merge");
+        merge(features_npca,X[1]);
+      }
 
       // get compressed descriptors
       for(unsigned i=0;i<descriptors_pca.size()-extractor_pca.size();i++){
-        if(!getSubWindow(img,roi, features_pca[i], img_Patch, descriptors_pca[i]))return false;
+        if(!getSubWindow(img,roi, features_pca[i], img_Patch, descriptors_pca[i])) return failure();
       }
       //get compressed custom descriptors
       for(unsigned i=0,j=(unsigned)(descriptors_pca.size()-extractor_pca.size());i<extractor_pca.size();i++,j++){
-        if(!getSubWindow(img,roi, features_pca[j], extractor_pca[i]))return false;
+        if(!getSubWindow(img,roi, features_pca[j], extractor_pca[i])) return failure();
       }
-      if(features_pca.size()>0)merge(features_pca,X[0]);
+
+      if(features_pca.size()>0) {
+        ZoneScopedN("merge");
+        merge(features_pca,X[0]);
+      }
 
       //compress the features and the KRSL model
       if(params.desc_pca !=0){
+        ZoneScopedN("compress");
         compress(proj_mtx,X[0],X[0],data_temp,compress_data);
         compress(proj_mtx,Z[0],Zc[0],data_temp,compress_data);
       }
@@ -185,6 +254,8 @@ namespace cv {
       // copy the compressed KRLS model
       Zc[1] = Z[1];
 
+      {
+        ZoneScopedN("feature merge");
       // merge all features
       if(features_npca.size()==0){
         x = X[0];
@@ -196,12 +267,14 @@ namespace cv {
         merge(X,2,x);
         merge(Zc,2,z);
       }
+      }
 
       //compute the gaussian kernel
       denseGaussKernel(params.sigma,x,z,k,layers,vxf,vyf,vxyf,xy_data,xyf_data);
 
       // compute the fourier transform of the kernel
-      fft2(k,kf);
+      fft2(k, kf);
+      // fftw_fft2(k,kf);
       if(frame==1)spec2=Mat_<Vec2f >(kf.rows, kf.cols);
 
       // calculate filter response
@@ -214,14 +287,11 @@ namespace cv {
       minMaxLoc( response, &minVal, &maxVal, &minLoc, &maxLoc );
       if (maxVal < params.detect_thresh)
       {
-          return false;
+          return failure();
       }
       roi.x+=(maxLoc.x-roi.width/2+1);
       roi.y+=(maxLoc.y-roi.height/2+1);
     }
-
-    // #TEMP
-    //return true;
 
     // update the bounding box
     Rect2d boundingBox;
@@ -230,29 +300,27 @@ namespace cv {
     boundingBox.width = (resizeImage?roi.width*2:roi.width)/2;
     boundingBox.height = (resizeImage?roi.height*2:roi.height)/2;
 
+    // TODO - we can switch this to run the subwindow extraction in parallel
     // extract the patch for learning purpose
     // get non compressed descriptors
     for(unsigned i=0;i<descriptors_npca.size()-extractor_npca.size();i++){
-      if(!getSubWindow(img,roi, features_npca[i], img_Patch, descriptors_npca[i]))return false;
+      if(!getSubWindow(img,roi, features_npca[i], img_Patch, descriptors_npca[i])) return failure();
     }
     //get non-compressed custom descriptors
     for(unsigned i=0,j=(unsigned)(descriptors_npca.size()-extractor_npca.size());i<extractor_npca.size();i++,j++){
-      if(!getSubWindow(img,roi, features_npca[j], extractor_npca[i]))return false;
+      if(!getSubWindow(img,roi, features_npca[j], extractor_npca[i])) return failure();
     }
     if(features_npca.size()>0)merge(features_npca,X[1]);
 
     // get compressed descriptors
     for(unsigned i=0;i<descriptors_pca.size()-extractor_pca.size();i++){
-      if(!getSubWindow(img,roi, features_pca[i], img_Patch, descriptors_pca[i]))return false;
+      if(!getSubWindow(img,roi, features_pca[i], img_Patch, descriptors_pca[i])) return failure();
     }
     //get compressed custom descriptors
     for(unsigned i=0,j=(unsigned)(descriptors_pca.size()-extractor_pca.size());i<extractor_pca.size();i++,j++){
-      if(!getSubWindow(img,roi, features_pca[j], extractor_pca[i]))return false;
+      if(!getSubWindow(img,roi, features_pca[j], extractor_pca[i])) return failure();
     }
     if(features_pca.size()>0)merge(features_pca,X[0]);
-
-    // #TEMP
-    //return true;
 
     //update the training data
     if(frame==0){
@@ -262,9 +330,6 @@ namespace cv {
       Z[0]=(1.0-params.interp_factor)*Z[0]+params.interp_factor*X[0];
       Z[1]=(1.0-params.interp_factor)*Z[1]+params.interp_factor*X[1];
     }
-
-    // #TEMP
-    // AFTER MEEE
 
     if(params.desc_pca !=0 || use_custom_extractor_pca){
       // initialize the vector of Mat variables
@@ -278,9 +343,8 @@ namespace cv {
       compress(proj_mtx,X[0],X[0],data_temp,compress_data);
     }
 
-    // #
-    // BEFORE MEEEE
-
+    {
+      ZoneScopedN("merge features");
     // merge all features
     if(features_npca.size()==0)
       x = X[0];
@@ -288,6 +352,7 @@ namespace cv {
       x = X[1];
     else
       merge(X,2,x);
+    }
 
     // initialize some required Mat variables
     if(frame==0){
@@ -298,21 +363,22 @@ namespace cv {
       new_alphaf=Mat_<Vec2f >(yf.rows, yf.cols);
     }
 
-    // #TEMP
-    // BORKEN BEFORE HERE
-
     // Kernel Regularized Least-Squares, calculate alphas
     denseGaussKernel(params.sigma,x,x,k,layers,vxf,vyf,vxyf,xy_data,xyf_data);
 
     // compute the fourier transform of the kernel and add a small value
     fft2(k,kf);
+    // fftw_fft2(k,kf);
     kf_lambda=kf+params.lambda;
 
+    {
+      ZoneScopedN("post-fft stuff");
     float den;
     if(params.split_coeff){
       mulSpectrums(yf,kf,new_alphaf,0);
       mulSpectrums(kf,kf_lambda,new_alphaf_den,0);
     }else{
+       
       for(int i=0;i<yf.rows;i++){
         for(int j=0;j<yf.cols;j++){
           den = 1.0f/(kf_lambda.at<Vec2f>(i,j)[0]*kf_lambda.at<Vec2f>(i,j)[0]+kf_lambda.at<Vec2f>(i,j)[1]*kf_lambda.at<Vec2f>(i,j)[1]);
@@ -324,7 +390,10 @@ namespace cv {
         }
       }
     }
+    }
 
+    {
+      ZoneScopedN("update RLS");
     // update the RLS model
     if(frame==0){
       alphaf=new_alphaf.clone();
@@ -332,6 +401,7 @@ namespace cv {
     }else{
       alphaf=(1.0-params.interp_factor)*alphaf+params.interp_factor*new_alphaf;
       if(params.split_coeff)alphaf_den=(1.0-params.interp_factor)*alphaf_den+params.interp_factor*new_alphaf_den;
+    }
     }
 
     frame++;
@@ -353,7 +423,8 @@ namespace cv {
   /*
    * hann window filter
    */
-  void FastTrackerCUDA::createHanningWindow(OutputArray dest, const cv::Size winSize, const int type) const {
+  void FastTrackerMP::createHanningWindow(OutputArray dest, const cv::Size winSize, const int type) const {
+      ZoneScopedN("ftmp hanningWindow");
       CV_Assert( type == CV_32FC1 || type == CV_64FC1 );
 
       dest.create(winSize, type);
@@ -366,10 +437,12 @@ namespace cv {
 
       const float coeff0 = 2.0f * (float)CV_PI / (cols - 1);
       const float coeff1 = 2.0f * (float)CV_PI / (rows - 1);
+       
       for(int j = 0; j < cols; j++)
         wc[j] = 0.5f * (1.0f - cos(coeff0 * j));
 
       if(dst.depth() == CV_32F){
+         
         for(int i = 0; i < rows; i++){
           float* dstData = dst.ptr<float>(i);
           float wr = 0.5f * (1.0f - cos(coeff1 * i));
@@ -377,6 +450,7 @@ namespace cv {
             dstData[j] = (float)(wr * wc[j]);
         }
       }else{
+         
         for(int i = 0; i < rows; i++){
           double* dstData = dst.ptr<double>(i);
           double wr = 0.5f * (1.0f - cos(coeff1 * i));
@@ -390,37 +464,143 @@ namespace cv {
   }
 
   /*
-   * simplification of fourier transform function in opencv
+   * methods for reading and writing images to fftw format
    */
-  void inline FastTrackerCUDA::fft2(const Mat src, Mat & dest) const {
-    // // perform a dft using cuda on the src image and move to dest
-    // cuda::GpuMat d_src, d_dest;
-    // d_src.upload(src);
-    // cuda::dft(d_src, d_dest, src.size());
-    // d_dest.download(dest);
+  void inline FastTrackerMP::write_fftw_image(const Mat src, fftw_complex * dest, const int height, const int width) {
+    ZoneScopedN("write_fftw_image");
+    // #pragma omp parallel for
+    // for(int j = 0 ; j < height ; j++ ) {
+    //   int k = j*width;
+    //   for(int i = 0 ; i < width ; i++ ) {
+    //     int l = k + i;
+    //     dest[l][0] = ( double )src.at<float>(j, i);
+    //     dest[l][1] = 0.0;
+    //   }
+    // }
+    const int area = height * width;
+    const int batch_size = 10;
+    #pragma omp parallel for
+    for(int idx = 0; idx < area; idx += batch_size){
+      for (int offset = 0; offset < batch_size; offset++) {
+            int h = idx + offset;
+            if (h > area) break;
+            int i = h / width;
+            int j = h % width;
 
-    dft(src, dest, DFT_COMPLEX_OUTPUT);
+            dest[h][0] = ( double )src.at<float>(i, j);
+            dest[h][1] = 0.0;
+        }
+    }
   }
 
-  void inline FastTrackerCUDA::fft2(const Mat src, std::vector<Mat> & dest, std::vector<Mat> & layers_data) const {
+  // TODO, I actually do want to pass these by reference
+  void inline FastTrackerMP::read_fftw_image(const fftw_complex * src, Mat & dest, Mat & t1, Mat & t2, const int height, const int width) {
+    ZoneScopedN("read_fftw_image");
+    // normalize
+    const double c = (double)(height * width);
+    // for(int i = 0 ; i < dest.rows * dest.cols ; i++ ) {
+    //     src[i][0] /= c;
+    // }
+    // copy
+    // int k = 0;
+    // // #pragma omp parallel for shared(k)
+    // for(int j = 0 ; j < dest.rows ; j++ ) {
+    //     for(int i = 0 ; i < dest.cols ; i++ ) {
+    //         t1.at<float>(j, i) = src[k][0] / c;
+    //         k++;
+    //     }
+    // }
+    // k = 0;
+    // // #pragma omp parallel for shared(k)
+    // for(int j = 0 ; j < dest.rows ; j++ ) {
+    //     for(int i = 0 ; i < dest.cols ; i++ ) {
+    //         t2.at<float>(j, i) = src[k][1] / c;
+    //         k++;
+    //     }
+    // }
+    
+    // TODO can be much better
+    // this optimization reduced time by 10ms
+    const int area = height * width;
+    const int batch_size = 20;
+    #pragma omp parallel for
+    for(int idx = 0; idx < area; idx += batch_size){
+      int is[batch_size];
+      int js[batch_size];
+      int top = 0;
+      for (int offset = 0; offset < batch_size; offset++) {
+            int h = idx + offset;
+            if (h > area) break;
+            is[offset] = h / width;
+            js[offset] = h % width;
+            top = offset;
+      }
+      for (int x = 0; x < batch_size; x++) {
+        if (x > top) break;
+        t1.at<float>(is[x], js[x]) = src[idx+x][0] / c;
+      }
+      for (int x = 0; x < batch_size; x++) {
+        if (x > top) break;
+        t2.at<float>(is[x], js[x]) = src[idx+x][1] / c;
+      }
+    }
+
+    cv::merge(std::vector<cv::Mat>{t1, t2}, dest);
+  }
+
+  /*
+   * simplification of fourier transform function in opencv
+   */
+  void inline FastTrackerMP::fft2(const Mat src, Mat & dest) const {
+    ZoneScopedN("ftmp fft2");
+    dft(src,dest,DFT_COMPLEX_OUTPUT);
+  }
+
+  void inline FastTrackerMP::fftw_fft2(const Mat src, Mat & dest) {
+    ZoneScopedN("ftmp fftw_fft2");
+    write_fftw_image(src, f_in, f_h, f_w);
+    fftw_execute(f_plan);
+    read_fftw_image(f_out, dest, c1, c2, f_h, f_w);
+  }
+
+  void inline FastTrackerMP::fft2(const Mat src, std::vector<Mat> & dest, std::vector<Mat> & layers_data) const {
+    ZoneScopedN("ftmp fft2");
+    split(src, layers_data);
+
+    #pragma omp parallel for
+    for(int i=0;i<src.channels();i++){
+      dft(layers_data[i],dest[i],DFT_COMPLEX_OUTPUT);
+    }
+  }
+
+  void inline FastTrackerMP::fftw_fft2(const Mat src, std::vector<Mat> & dest, std::vector<Mat> & layers_data) {
+    ZoneScopedN("ftmp fftw_fft2");
     split(src, layers_data);
 
     for(int i=0;i<src.channels();i++){
-      fft2(layers_data[i],dest[i]);
+      write_fftw_image(layers_data[i], f_in, f_h, f_w);
+      fftw_execute(f_plan);
+      read_fftw_image(f_out, dest[i], c1, c2, f_h, f_w);
     }
   }
 
   /*
    * simplification of inverse fourier transform function in opencv
    */
-  void inline FastTrackerCUDA::ifft2(const Mat src, Mat & dest) const {
+  void inline FastTrackerMP::ifft2(const Mat src, Mat & dest) const {
+    ZoneScopedN("ftmp ifft2");
     idft(src,dest,DFT_SCALE+DFT_REAL_OUTPUT);
+  }
+
+  void inline FastTrackerMP::fftw_ifft2(const Mat src, Mat & dest) {
+    // TODO
   }
 
   /*
    * Point-wise multiplication of two Multichannel Mat data
    */
-  void inline FastTrackerCUDA::pixelWiseMult(const std::vector<Mat> src1, const std::vector<Mat>  src2, std::vector<Mat>  & dest, const int flags, const bool conjB) const {
+  void inline FastTrackerMP::pixelWiseMult(const std::vector<Mat> src1, const std::vector<Mat>  src2, std::vector<Mat>  & dest, const int flags, const bool conjB) const {
+    ZoneScopedN("ftmp pxWiseMult");
     for(unsigned i=0;i<src1.size();i++){
       mulSpectrums(src1[i], src2[i], dest[i],flags,conjB);
     }
@@ -429,8 +609,10 @@ namespace cv {
   /*
    * Combines all channels in a multi-channels Mat data into a single channel
    */
-  void inline FastTrackerCUDA::sumChannels(std::vector<Mat> src, Mat & dest) const {
+  void inline FastTrackerMP::sumChannels(std::vector<Mat> src, Mat & dest) const {
+    ZoneScopedN("ftmp sumChans");
     dest=src[0].clone();
+    
     for(unsigned i=1;i<src.size();i++){
       dest+=src[i];
     }
@@ -439,52 +621,107 @@ namespace cv {
   /*
    * obtains the projection matrix using PCA
    */
-  void inline FastTrackerCUDA::updateProjectionMatrix(const Mat src, Mat & old_cov,Mat &  proj_matrix, float pca_rate, int compressed_sz,
+  void inline FastTrackerMP::updateProjectionMatrix(const Mat src, Mat & old_cov,Mat &  proj_matrix, float pca_rate, int compressed_sz,
                                                      std::vector<Mat> & layers_pca,std::vector<Scalar> & average, Mat pca_data, Mat new_cov, Mat w, Mat u, Mat vt) {
+    ZoneScopedN("ftmp upProjMat");
     CV_Assert(compressed_sz<=src.channels());
 
+    {
+      ZoneScopedN("split");
     split(src,layers_pca);
+    }
 
+    {
+      ZoneScopedN("avg");
+    #pragma omp parallel for
     for (int i=0;i<src.channels();i++){
       average[i]=mean(layers_pca[i]);
       layers_pca[i]-=average[i];
     }
+    }
 
+    {
+      ZoneScopedN("covar");
     // calc covariance matrix
     merge(layers_pca,pca_data);
     pca_data=pca_data.reshape(1,src.rows*src.cols);
+    }
     
-    new_cov=1.0/(float)(src.rows*src.cols-1)*(pca_data.t()*pca_data);
-    if(old_cov.rows==0)old_cov=new_cov.clone();
+    // this is the cursed line
+    // TODO OPTIMIZE
+    {
+      ZoneScopedN("new_conv");
+      // take the transpose of a matrix and multiple it by itself
+      auto t = pca_data.t();
+      
+      new_cov = t * pca_data;
+      // cv::Mat new_cov;
+      // parallelMatrixMultiply(t, pca_data, new_cov);
 
+      const float scale = 1.0 / (float)(src.rows * src.cols-1);
+      const int batch_size = 10;
+
+      parallelElementWiseMult(new_cov, scale, batch_size);
+
+      // new_cov=1.0/(float)(src.rows*src.cols-1)*(pca_data.t()*pca_data);
+    }
+    
+    if(old_cov.rows==0)old_cov=new_cov.clone();
+    {
+      ZoneScopedN("pca");
     // calc PCA
     SVD::compute((1.0-pca_rate)*old_cov+pca_rate*new_cov, w, u, vt);
+    }
 
+    Mat proj_vars;
+    {
+      ZoneScopedN("extract");
     // extract the projection matrix
     proj_matrix=u(Rect(0,0,compressed_sz,src.channels())).clone();
-    Mat proj_vars=Mat::eye(compressed_sz,compressed_sz,proj_matrix.type());
+    proj_vars=Mat::eye(compressed_sz,compressed_sz,proj_matrix.type());
+    }
+
+    {
+      ZoneScopedN("update");
+     // #pragma omp parallel for
     for(int i=0;i<compressed_sz;i++){
       proj_vars.at<float>(i,i)=w.at<float>(i);
     }
+    }
 
+    {
+      ZoneScopedN("covar update");
     // update the covariance matrix
     old_cov=(1.0-pca_rate)*old_cov+pca_rate*proj_matrix*proj_vars*proj_matrix.t();
+    }
   }
 
   /*
    * compress the features
    */
-  void inline FastTrackerCUDA::compress(const Mat proj_matrix, const Mat src, Mat & dest, Mat & data, Mat & compressed) const {
+  void inline FastTrackerMP::compress(const Mat proj_matrix, const Mat src, Mat & dest, Mat & data, Mat & compressed) const {
+    {
+    ZoneScopedN("compr_reshape");
     data=src.reshape(1,src.rows*src.cols);
+    }
+    {
+    ZoneScopedN("compr_mult");
+    //std::cout << proj_matrix.rows << "," << proj_matrix.cols << "\n";
+    //std::cout << src.rows << "," << src.cols << "\n";
+    //std::cout << data.rows << "x" << data.cols << " @ " << proj_matrix.rows << "x" << proj_matrix.cols << "\n";
     compressed=data*proj_matrix;
+    }
+    {
+    ZoneScopedN("compr_clone");
     dest=compressed.reshape(proj_matrix.cols,src.rows).clone();
+    }
   }
 
   /*
    * obtain the patch and apply hann window filter to it
    */
-  bool FastTrackerCUDA::getSubWindow(const Mat img, const Rect _roi, Mat& feat, Mat& patch, FastTrackerCUDA::MODE desc) const {
-
+  bool FastTrackerMP::getSubWindow(const Mat img, const Rect _roi, Mat& feat, Mat& patch, FastTrackerMP::MODE desc) const {
+    ZoneScopedN("ftmp getSubWnd");
     Rect region=_roi;
 
     // return false if roi is outside the image
@@ -541,7 +778,8 @@ namespace cv {
   /*
    * get feature using external function
    */
-  bool FastTrackerCUDA::getSubWindow(const Mat img, const Rect _roi, Mat& feat, void (*f)(const Mat, const Rect, Mat& )) const{
+  bool FastTrackerMP::getSubWindow(const Mat img, const Rect _roi, Mat& feat, void (*f)(const Mat, const Rect, Mat& )) const{
+    ZoneScopedN("ftmp getSubWnd");
 
     // return false if roi is outside the image
     if((_roi.x+_roi.width<0)
@@ -560,6 +798,7 @@ namespace cv {
     Mat hann_win;
     std::vector<Mat> _layers;
 
+    #pragma omp parallel for 
     for(int i=0;i<feat.channels();i++)
       _layers.push_back(hann);
 
@@ -572,36 +811,108 @@ namespace cv {
 
   /* Convert BGR to ColorNames
    */
-  void FastTrackerCUDA::extractCN(Mat patch_data, Mat & cnFeatures) const {
+  void FastTrackerMP::extractCN(Mat patch_data, Mat & cnFeatures) const {
+    ZoneScopedN("ftmp extractCn");
     Vec3b & pixel = patch_data.at<Vec3b>(0,0);
     unsigned index;
 
     if(cnFeatures.type() != CV_32FC(10))
       cnFeatures = Mat::zeros(patch_data.rows,patch_data.cols,CV_32FC(10));
 
-    for(int i=0;i<patch_data.rows;i++){
-      for(int j=0;j<patch_data.cols;j++){
-        pixel=patch_data.at<Vec3b>(i,j);
-        index=(unsigned)(floor((float)pixel[2]/8)+32*floor((float)pixel[1]/8)+32*32*floor((float)pixel[0]/8));
+    // perform the loops in parallel using OpenMP
+    // and collapsed the loops to avoid overhead
 
-        //copy the values
-        for(int _k=0;_k<10;_k++){
-          cnFeatures.at<Vec<float,10> >(i,j)[_k]=ColorNames[index][_k];
-        }
+    // for loop variables
+    const int batch_size = 2;
+    const int patch_area = patch_data.rows*patch_data.cols;
+    #pragma omp parallel for
+    for(int idx=0;idx<patch_area;idx+=batch_size){
+      for(int offset=0; offset<batch_size; offset++){
+        if(idx+offset >= patch_area) break;
+        int h = idx+offset;
+        int i = h/patch_data.cols;
+        int j = h%patch_data.cols;
+        Vec3b pixel = patch_data.at<Vec3b>(i,j);
+        unsigned index=(unsigned)(floor((float)pixel[2]/8)+32*floor((float)pixel[1]/8)+32*32*floor((float)pixel[0]/8));
+        // for(int k=0;k<10;k++)
+        //   cnFeatures.at<Vec<float,10> >(i,j)[k] = ColorNames[index][k];
+        //auto t = cnFeatures.at<Vec<float, 10> >(i, j);
+        Vec<float, 10> t;
+        t[0] = ColorNames[index][0];
+        t[1] = ColorNames[index][1];
+        t[2] = ColorNames[index][2];
+        t[3] = ColorNames[index][3];
+        t[4] = ColorNames[index][4];
+        t[5] = ColorNames[index][5];
+        t[6] = ColorNames[index][6];
+        t[7] = ColorNames[index][7];
+        t[8] = ColorNames[index][8];
+        t[9] = ColorNames[index][9];
+        cnFeatures.at<Vec<float,10> >(i,j) = t;
       }
     }
+    // const int batch_size = 4;
+    // const int patch_area = patch_data.rows*patch_data.cols;
+    // #pragma omp parallel for
+    // for(int idx=0;idx<patch_area;idx+=batch_size){
+    //   unsigned indices[batch_size];
+    //   int is[batch_size];
+    //   int js[batch_size];
+    //   for(int offset=0; offset<batch_size; offset++){
+    //     if(idx+offset >= patch_area) break;
+    //     int h = idx+offset;
+    //     int i = h/patch_data.cols;
+    //     is[offset] = i;
+    //     int j = h%patch_data.cols;
+    //     js[offset] = j;
+    //     Vec3b pixel = patch_data.at<Vec3b>(i,j);
+    //     indices[offset] = (unsigned)(floor((float)pixel[2]/8)+32*floor((float)pixel[1]/8)+32*32*floor((float)pixel[0]/8));
+    //   }
+    //     // for(int k=0;k<10;k++)
+    //     //   cnFeatures.at<Vec<float,10> >(i,j)[k] = ColorNames[index][k];
+    //     //auto t = cnFeatures.at<Vec<float, 10> >(i, j);
+    //   for(int offset=0; offset<batch_size; offset++){
+    //     Vec<float, 10> t;
+    //     unsigned index = indices[offset];
+    //     t[0] = ColorNames[index][0];
+    //     t[1] = ColorNames[index][1];
+    //     t[2] = ColorNames[index][2];
+    //     t[3] = ColorNames[index][3];
+    //     t[4] = ColorNames[index][4];
+    //     t[5] = ColorNames[index][5];
+    //     t[6] = ColorNames[index][6];
+    //     t[7] = ColorNames[index][7];
+    //     t[8] = ColorNames[index][8];
+    //     t[9] = ColorNames[index][9];
+    //     cnFeatures.at<Vec<float,10> >(is[offset],js[offset]) = t;
+    //   }
+    // }
+    // for(int idx=0;idx<patch_data.rows*patch_data.cols;idx++){
+    //   int i = idx/patch_data.cols;
+    //   int j = idx%patch_data.cols;
 
+    //   Vec3b & pixel=patch_data.at<Vec3b>(i,j);
+    //   unsigned index=(unsigned)(floor((float)pixel[2]/8)+32*floor((float)pixel[1]/8)+32*32*floor((float)pixel[0]/8));
+
+    //   //copy the values
+    //   for(int _k=0;_k<10;_k++){
+    //     cnFeatures.at<Vec<float,10> >(i,j)[_k]=ColorNames[index][_k];
+    //   }
+    // }
   }
 
   /*
    *  dense gauss kernel function
    */
-  void FastTrackerCUDA::denseGaussKernel(const float sigma, const Mat x_data, const Mat y_data, Mat & k_data,
-                                        std::vector<Mat> & layers_data,std::vector<Mat> & xf_data,std::vector<Mat> & yf_data, std::vector<Mat> xyf_v, Mat xy, Mat xyf ) const {
+  void FastTrackerMP::denseGaussKernel(const float sigma, const Mat x_data, const Mat y_data, Mat & k_data,
+                                        std::vector<Mat> & layers_data,std::vector<Mat> & xf_data,std::vector<Mat> & yf_data, std::vector<Mat> xyf_v, Mat xy, Mat xyf ) {
+    ZoneScopedN("ftmp denseGauss");
     double normX, normY;
 
     fft2(x_data,xf_data,layers_data);
     fft2(y_data,yf_data,layers_data);
+    // fftw_fft2(x_data,xf_data,layers_data);
+    // fftw_fft2(y_data,yf_data,layers_data);
 
     normX=norm(x_data);
     normX*=normX;
@@ -618,14 +929,22 @@ namespace cv {
     }
 
     //(xx + yy - 2 * xy) / numel(x)
-    xy=(normX+normY-2*xyf)/(x_data.rows*x_data.cols*x_data.channels());
+    //xy=(normX+normY-2*xyf)/(x_data.rows*x_data.cols*x_data.channels());
+    const double normXY = normX+normY-2;
+    const double normXYDiv = 1.0/(x_data.rows*x_data.cols*x_data.channels());
+    parallelElementWiseMult(xyf, xy, normXY*normXYDiv, 10);
 
     // TODO: check wether we really need thresholding or not
     //threshold(xy,xy,0.0,0.0,THRESH_TOZERO);//max(0, (xx + yy - 2 * xy) / numel(x))
+    {
+      ZoneScopedN("thresholding");
+    #pragma omp parallel for private(xy)
     for(int i=0;i<xy.rows;i++){
       for(int j=0;j<xy.cols;j++){
-        if(xy.at<float>(i,j)<0.0)xy.at<float>(i,j)=0.0;
+        if(xy.at<float>(i,j)<0.0)
+            xy.at<float>(i,j)=0.0;
       }
+    }
     }
 
     float sig=-1.0f/(sigma*sigma);
@@ -638,8 +957,21 @@ namespace cv {
    * http://stackoverflow.com/questions/10420454/shift-like-matlab-function-rows-or-columns-of-a-matrix-in-opencv
    */
   // circular shift one row from up to down
-  void FastTrackerCUDA::shiftRows(Mat& mat) const {
+  void FastTrackerMP::shiftRows(Mat& mat) const {
+      ZoneScopedN("ftmp shiftRows1");
 
+      // Mat temp;
+      // Mat m;
+      // int k = (mat.rows-1);
+      // mat.row(k).copyTo(temp);
+
+      // #pragma omp parallel for private(m)
+      // for(int i = k; i >= 0; i--) {
+      //   auto targetIdx = std::abs((i-1) % k);
+      //   m = mat.row(i);  // copy the current row into m
+      //   mat.row(targetIdx).copyTo(m);  // ...then overwrite it with row i-1?
+      // }
+      // temp.copyTo(m);
       Mat temp;
       Mat m;
       int _k = (mat.rows-1);
@@ -654,15 +986,20 @@ namespace cv {
   }
 
   // circular shift n rows from up to down if n > 0, -n rows from down to up if n < 0
-  void FastTrackerCUDA::shiftRows(Mat& mat, int n) const {
+  void FastTrackerMP::shiftRows(Mat& mat, int n) const {
+    ZoneScopedN("ftmp shiftRowsN");
       if( n < 0 ) {
         n = -n;
         flip(mat,mat,0);
+        
+        #pragma omp parallel for private(mat)
         for(int _k=0; _k < n;_k++) {
           shiftRows(mat);
         }
         flip(mat,mat,0);
       }else{
+        
+        #pragma omp parallel for private(mat)
         for(int _k=0; _k < n;_k++) {
           shiftRows(mat);
         }
@@ -670,7 +1007,8 @@ namespace cv {
   }
 
   //circular shift n columns from left to right if n > 0, -n columns from right to left if n < 0
-  void FastTrackerCUDA::shiftCols(Mat& mat, int n) const {
+  void FastTrackerMP::shiftCols(Mat& mat, int n) const {
+    ZoneScopedN("ftmp shiftCols");
       if(n < 0){
         n = -n;
         flip(mat,mat,1);
@@ -688,7 +1026,8 @@ namespace cv {
   /*
    * calculate the detection response
    */
-  void FastTrackerCUDA::calcResponse(const Mat alphaf_data, const Mat kf_data, Mat & response_data, Mat & spec_data) const {
+  void FastTrackerMP::calcResponse(const Mat alphaf_data, const Mat kf_data, Mat & response_data, Mat & spec_data) const {
+    ZoneScopedN("ftmp calcResp");
     //alpha f--> 2channels ; k --> 1 channel;
     mulSpectrums(alphaf_data,kf_data,spec_data,0,false);
     ifft2(spec_data,response_data);
@@ -697,12 +1036,15 @@ namespace cv {
   /*
    * calculate the detection response for splitted form
    */
-  void FastTrackerCUDA::calcResponse(const Mat alphaf_data, const Mat _alphaf_den, const Mat kf_data, Mat & response_data, Mat & spec_data, Mat & spec2_data) const {
+  void FastTrackerMP::calcResponse(const Mat alphaf_data, const Mat _alphaf_den, const Mat kf_data, Mat & response_data, Mat & spec_data, Mat & spec2_data) const {
+    ZoneScopedN("ftmp calcResp");
 
     mulSpectrums(alphaf_data,kf_data,spec_data,0,false);
 
     //z=(a+bi)/(c+di)=[(ac+bd)+i(bc-ad)]/(c^2+d^2)
     float den;
+
+    #pragma omp parallel for private(den)
     for(int i=0;i<kf_data.rows;i++){
       for(int j=0;j<kf_data.cols;j++){
         den=1.0f/(_alphaf_den.at<Vec2f>(i,j)[0]*_alphaf_den.at<Vec2f>(i,j)[0]+_alphaf_den.at<Vec2f>(i,j)[1]*_alphaf_den.at<Vec2f>(i,j)[1]);
@@ -716,7 +1058,7 @@ namespace cv {
     ifft2(spec2_data,response_data);
   }
 
-  void FastTrackerCUDA::setFeatureExtractor(void (*f)(const Mat, const Rect, Mat&), bool pca_func){
+  void FastTrackerMP::setFeatureExtractor(void (*f)(const Mat, const Rect, Mat&), bool pca_func){
     if(pca_func){
       extractor_pca.push_back(f);
       use_custom_extractor_pca = true;
@@ -727,7 +1069,7 @@ namespace cv {
   }
   /*----------------------------------------------------------------------*/
 
-FastTrackerCUDA::Params::Params()
+FastTrackerMP::Params::Params()
 {
   detect_thresh = 0.5f;
   sigma=0.2f;

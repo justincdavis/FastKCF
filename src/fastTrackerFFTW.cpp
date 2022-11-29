@@ -1,4 +1,4 @@
-#include "fastTrackerMP.hpp"
+#include "fastTrackerFFTW.hpp"
 #include <complex>
 #include <cmath>
 #include "colorNames.hpp"
@@ -17,7 +17,7 @@ namespace cv {
 //    return std::make_shared<T>();
 //}
 
-  FastTrackerMP::FastTrackerMP(FastTrackerMP::Params p) :
+  FastTrackerFFTW::FastTrackerFFTW(FastTrackerFFTW::Params p) :
     params(p)
   {
     resizeImage = false;
@@ -25,7 +25,8 @@ namespace cv {
     use_custom_extractor_npca = false;
   }
 
-  bool FastTrackerMP::failure() {
+  bool FastTrackerFFTW::failure() {
+    failed = true;
     fftw_cleanup_threads();
     fftw_cleanup();
     return false;
@@ -34,7 +35,7 @@ namespace cv {
   // /*
   // *  perform elementwise multiplication of a matrix with a scalar
   // */
-  // void FastTrackerMP::parallelElementWiseMult(Mat & src, const float scalar, const int batch_size) {
+  // void FastTrackerFFTW::parallelElementWiseMult(Mat & src, const float scalar, const int batch_size) {
   //   const int area = src.rows * src.cols;
   //   #pragma omp parallel for
   //   for (int idx = 0; idx < area; idx+=batch_size) {
@@ -55,7 +56,7 @@ namespace cv {
    * - creating a gaussian response for the training ground-truth
    * - perform FFT to the gaussian response
    */
-  void FastTrackerMP::init(InputArray image, const Rect& boundingBox)
+  void FastTrackerFFTW::init(InputArray image, const Rect& boundingBox)
   {
     ZoneScopedN("ftmp init");
 
@@ -69,18 +70,23 @@ namespace cv {
     // std::cout << "ROI HEIGHT: " << roi.height << ", ROI WIDTH: " << roi.width << std::endl;
 
     // enable fftw threads
+    if (!failed) {
+      failed = failure();
+    }
+    failed = false;
+
     fftw_init_threads();
     fftw_plan_with_nthreads(omp_get_max_threads());
 
-    // import wisdom
-    int success = fftw_import_system_wisdom();
-    if (success == 0) {
-      std::cerr << "WARNING: FFTW system wisdom import failed" << std::endl;
-    }
-    success = fftw_import_wisdom_from_filename("wisdom");
-    if (success == 0) {
-      std::cerr << "WARNING: FFTW local wisdom import failed" << std::endl;
-    }
+    // // import wisdom
+    // int success = fftw_import_system_wisdom();
+    // // if (success == 0) {
+    // //   std::cerr << "WARNING: FFTW system wisdom import failed" << std::endl;
+    // // }
+    // success = fftw_import_wisdom_from_filename("wisdom");
+    // if (success == 0) {
+    //   std::cerr << "WARNING: FFTW local wisdom import failed" << std::endl;
+    // }
 
     // generate fftw plan
     f_in = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * roi.width * roi.height);
@@ -89,7 +95,7 @@ namespace cv {
     c2 = cv::Mat::zeros(roi.height, roi.width, CV_32FC1);
     f_h = roi.height;
     f_w = roi.width;
-    f_plan = fftw_plan_dft_2d(f_h, f_w, f_in, f_out, FFTW_FORWARD, FFTW_PATIENT);
+    f_plan = fftw_plan_dft_2d(f_h, f_w, f_in, f_out, FFTW_FORWARD, FFTW_MEASURE);
 
     //calclulate output sigma
     output_sigma=std::sqrt(static_cast<float>(roi.width*roi.height))*params.output_sigma_factor;
@@ -152,7 +158,7 @@ namespace cv {
       params.desc_pca &= ~(CN);
       params.desc_npca &= ~(CN);
     }
-    //model = makePtr<FastTrackerMPModel>();
+    //model = makePtr<FastTrackerFFTWModel>();
 
     //std::cout << "Record the non-compressed descriptors" << std::endl;
     // record the non-compressed descriptors
@@ -189,7 +195,7 @@ namespace cv {
   /*
    * Main part of the KCF algorithm
    */
-  bool FastTrackerMP::update(InputArray image, Rect& boundingBoxResult)
+  bool FastTrackerFFTW::update(InputArray image, Rect& boundingBoxResult)
   {
     ZoneScopedN("ftmp update");
     double minVal, maxVal;	// min-max response
@@ -423,7 +429,7 @@ namespace cv {
   /*
    * hann window filter
    */
-  void FastTrackerMP::createHanningWindow(OutputArray dest, const cv::Size winSize, const int type) const {
+  void FastTrackerFFTW::createHanningWindow(OutputArray dest, const cv::Size winSize, const int type) const {
       ZoneScopedN("ftmp hanningWindow");
       CV_Assert( type == CV_32FC1 || type == CV_64FC1 );
 
@@ -466,7 +472,8 @@ namespace cv {
   /*
    * methods for reading and writing images to fftw format
    */
-  void inline FastTrackerMP::write_fftw_image(const Mat src, fftw_complex * dest, const int height, const int width) const {
+  void inline FastTrackerFFTW::write_fftw_image(const Mat src, fftw_complex * dest, const int height, const int width) {
+    ZoneScopedN("write_fftw_image");
     // #pragma omp parallel for
     // for(int j = 0 ; j < height ; j++ ) {
     //   int k = j*width;
@@ -493,7 +500,8 @@ namespace cv {
   }
 
   // TODO, I actually do want to pass these by reference
-  void inline FastTrackerMP::read_fftw_image(const fftw_complex * src, Mat & dest, Mat t1, Mat t2, const int height, const int width) const {
+  void inline FastTrackerFFTW::read_fftw_image(const fftw_complex * src, Mat & dest, Mat & t1, Mat & t2, const int height, const int width) {
+    ZoneScopedN("read_fftw_image");
     // normalize
     const double c = (double)(height * width);
     // for(int i = 0 ; i < dest.rows * dest.cols ; i++ ) {
@@ -549,19 +557,19 @@ namespace cv {
   /*
    * simplification of fourier transform function in opencv
    */
-  void inline FastTrackerMP::fft2(const Mat src, Mat & dest) const {
+  void inline FastTrackerFFTW::fft2(const Mat src, Mat & dest) const {
     ZoneScopedN("ftmp fft2");
     dft(src,dest,DFT_COMPLEX_OUTPUT);
   }
 
-  void inline FastTrackerMP::fftw_fft2(const Mat src, Mat & dest) const {
+  void inline FastTrackerFFTW::fftw_fft2(const Mat src, Mat & dest) {
     ZoneScopedN("ftmp fftw_fft2");
     write_fftw_image(src, f_in, f_h, f_w);
     fftw_execute(f_plan);
     read_fftw_image(f_out, dest, c1, c2, f_h, f_w);
   }
 
-  void inline FastTrackerMP::fft2(const Mat src, std::vector<Mat> & dest, std::vector<Mat> & layers_data) const {
+  void inline FastTrackerFFTW::fft2(const Mat src, std::vector<Mat> & dest, std::vector<Mat> & layers_data) const {
     ZoneScopedN("ftmp fft2");
     split(src, layers_data);
 
@@ -571,8 +579,8 @@ namespace cv {
     }
   }
 
-  void inline FastTrackerMP::fftw_fft2(const Mat src, std::vector<Mat> & dest, std::vector<Mat> & layers_data) const {
-    ZoneScopedN("ftmp fft2");
+  void inline FastTrackerFFTW::fftw_fft2(const Mat src, std::vector<Mat> & dest, std::vector<Mat> & layers_data) {
+    ZoneScopedN("ftmp fftw_fft2");
     split(src, layers_data);
 
     for(int i=0;i<src.channels();i++){
@@ -585,19 +593,19 @@ namespace cv {
   /*
    * simplification of inverse fourier transform function in opencv
    */
-  void inline FastTrackerMP::ifft2(const Mat src, Mat & dest) const {
+  void inline FastTrackerFFTW::ifft2(const Mat src, Mat & dest) const {
     ZoneScopedN("ftmp ifft2");
     idft(src,dest,DFT_SCALE+DFT_REAL_OUTPUT);
   }
 
-  void inline FastTrackerMP::fftw_ifft2(const Mat src, Mat & dest) const {
+  void inline FastTrackerFFTW::fftw_ifft2(const Mat src, Mat & dest) {
     // TODO
   }
 
   /*
    * Point-wise multiplication of two Multichannel Mat data
    */
-  void inline FastTrackerMP::pixelWiseMult(const std::vector<Mat> src1, const std::vector<Mat>  src2, std::vector<Mat>  & dest, const int flags, const bool conjB) const {
+  void inline FastTrackerFFTW::pixelWiseMult(const std::vector<Mat> src1, const std::vector<Mat>  src2, std::vector<Mat>  & dest, const int flags, const bool conjB) const {
     ZoneScopedN("ftmp pxWiseMult");
     for(unsigned i=0;i<src1.size();i++){
       mulSpectrums(src1[i], src2[i], dest[i],flags,conjB);
@@ -607,7 +615,7 @@ namespace cv {
   /*
    * Combines all channels in a multi-channels Mat data into a single channel
    */
-  void inline FastTrackerMP::sumChannels(std::vector<Mat> src, Mat & dest) const {
+  void inline FastTrackerFFTW::sumChannels(std::vector<Mat> src, Mat & dest) const {
     ZoneScopedN("ftmp sumChans");
     dest=src[0].clone();
     
@@ -619,7 +627,7 @@ namespace cv {
   /*
    * obtains the projection matrix using PCA
    */
-  void inline FastTrackerMP::updateProjectionMatrix(const Mat src, Mat & old_cov,Mat &  proj_matrix, float pca_rate, int compressed_sz,
+  void inline FastTrackerFFTW::updateProjectionMatrix(const Mat src, Mat & old_cov,Mat &  proj_matrix, float pca_rate, int compressed_sz,
                                                      std::vector<Mat> & layers_pca,std::vector<Scalar> & average, Mat pca_data, Mat new_cov, Mat w, Mat u, Mat vt) {
     ZoneScopedN("ftmp upProjMat");
     CV_Assert(compressed_sz<=src.channels());
@@ -697,7 +705,7 @@ namespace cv {
   /*
    * compress the features
    */
-  void inline FastTrackerMP::compress(const Mat proj_matrix, const Mat src, Mat & dest, Mat & data, Mat & compressed) const {
+  void inline FastTrackerFFTW::compress(const Mat proj_matrix, const Mat src, Mat & dest, Mat & data, Mat & compressed) const {
     {
     ZoneScopedN("compr_reshape");
     data=src.reshape(1,src.rows*src.cols);
@@ -718,7 +726,7 @@ namespace cv {
   /*
    * obtain the patch and apply hann window filter to it
    */
-  bool FastTrackerMP::getSubWindow(const Mat img, const Rect _roi, Mat& feat, Mat& patch, FastTrackerMP::MODE desc) const {
+  bool FastTrackerFFTW::getSubWindow(const Mat img, const Rect _roi, Mat& feat, Mat& patch, FastTrackerFFTW::MODE desc) const {
     ZoneScopedN("ftmp getSubWnd");
     Rect region=_roi;
 
@@ -776,7 +784,7 @@ namespace cv {
   /*
    * get feature using external function
    */
-  bool FastTrackerMP::getSubWindow(const Mat img, const Rect _roi, Mat& feat, void (*f)(const Mat, const Rect, Mat& )) const{
+  bool FastTrackerFFTW::getSubWindow(const Mat img, const Rect _roi, Mat& feat, void (*f)(const Mat, const Rect, Mat& )) const{
     ZoneScopedN("ftmp getSubWnd");
 
     // return false if roi is outside the image
@@ -809,7 +817,7 @@ namespace cv {
 
   /* Convert BGR to ColorNames
    */
-  void FastTrackerMP::extractCN(Mat patch_data, Mat & cnFeatures) const {
+  void FastTrackerFFTW::extractCN(Mat patch_data, Mat & cnFeatures) const {
     ZoneScopedN("ftmp extractCn");
     Vec3b & pixel = patch_data.at<Vec3b>(0,0);
     unsigned index;
@@ -902,8 +910,8 @@ namespace cv {
   /*
    *  dense gauss kernel function
    */
-  void FastTrackerMP::denseGaussKernel(const float sigma, const Mat x_data, const Mat y_data, Mat & k_data,
-                                        std::vector<Mat> & layers_data,std::vector<Mat> & xf_data,std::vector<Mat> & yf_data, std::vector<Mat> xyf_v, Mat xy, Mat xyf ) const {
+  void FastTrackerFFTW::denseGaussKernel(const float sigma, const Mat x_data, const Mat y_data, Mat & k_data,
+                                        std::vector<Mat> & layers_data,std::vector<Mat> & xf_data,std::vector<Mat> & yf_data, std::vector<Mat> xyf_v, Mat xy, Mat xyf ) {
     ZoneScopedN("ftmp denseGauss");
     double normX, normY;
 
@@ -955,7 +963,7 @@ namespace cv {
    * http://stackoverflow.com/questions/10420454/shift-like-matlab-function-rows-or-columns-of-a-matrix-in-opencv
    */
   // circular shift one row from up to down
-  void FastTrackerMP::shiftRows(Mat& mat) const {
+  void FastTrackerFFTW::shiftRows(Mat& mat) const {
       ZoneScopedN("ftmp shiftRows1");
 
       // Mat temp;
@@ -984,7 +992,7 @@ namespace cv {
   }
 
   // circular shift n rows from up to down if n > 0, -n rows from down to up if n < 0
-  void FastTrackerMP::shiftRows(Mat& mat, int n) const {
+  void FastTrackerFFTW::shiftRows(Mat& mat, int n) const {
     ZoneScopedN("ftmp shiftRowsN");
       if( n < 0 ) {
         n = -n;
@@ -1005,7 +1013,7 @@ namespace cv {
   }
 
   //circular shift n columns from left to right if n > 0, -n columns from right to left if n < 0
-  void FastTrackerMP::shiftCols(Mat& mat, int n) const {
+  void FastTrackerFFTW::shiftCols(Mat& mat, int n) const {
     ZoneScopedN("ftmp shiftCols");
       if(n < 0){
         n = -n;
@@ -1024,7 +1032,7 @@ namespace cv {
   /*
    * calculate the detection response
    */
-  void FastTrackerMP::calcResponse(const Mat alphaf_data, const Mat kf_data, Mat & response_data, Mat & spec_data) const {
+  void FastTrackerFFTW::calcResponse(const Mat alphaf_data, const Mat kf_data, Mat & response_data, Mat & spec_data) const {
     ZoneScopedN("ftmp calcResp");
     //alpha f--> 2channels ; k --> 1 channel;
     mulSpectrums(alphaf_data,kf_data,spec_data,0,false);
@@ -1034,7 +1042,7 @@ namespace cv {
   /*
    * calculate the detection response for splitted form
    */
-  void FastTrackerMP::calcResponse(const Mat alphaf_data, const Mat _alphaf_den, const Mat kf_data, Mat & response_data, Mat & spec_data, Mat & spec2_data) const {
+  void FastTrackerFFTW::calcResponse(const Mat alphaf_data, const Mat _alphaf_den, const Mat kf_data, Mat & response_data, Mat & spec_data, Mat & spec2_data) const {
     ZoneScopedN("ftmp calcResp");
 
     mulSpectrums(alphaf_data,kf_data,spec_data,0,false);
@@ -1056,7 +1064,7 @@ namespace cv {
     ifft2(spec2_data,response_data);
   }
 
-  void FastTrackerMP::setFeatureExtractor(void (*f)(const Mat, const Rect, Mat&), bool pca_func){
+  void FastTrackerFFTW::setFeatureExtractor(void (*f)(const Mat, const Rect, Mat&), bool pca_func){
     if(pca_func){
       extractor_pca.push_back(f);
       use_custom_extractor_pca = true;
@@ -1067,7 +1075,7 @@ namespace cv {
   }
   /*----------------------------------------------------------------------*/
 
-FastTrackerMP::Params::Params()
+FastTrackerFFTW::Params::Params()
 {
   detect_thresh = 0.5f;
   sigma=0.2f;

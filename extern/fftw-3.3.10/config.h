@@ -92,7 +92,7 @@
 /* #undef HAVE_ARMV8_PMCCNTR_EL0 */
 
 /* Define to enable AVX optimizations. */
-#define HAVE_AVX 1
+/* #undef HAVE_AVX */
 
 /* Define to enable AVX2 optimizations. */
 /* #undef HAVE_AVX2 */
@@ -160,10 +160,10 @@
 #define HAVE_FENV_H 1
 
 /* Define to enable generic (gcc) 128-bit SIMD optimizations. */
-#define HAVE_GENERIC_SIMD128 1
+/* #undef HAVE_GENERIC_SIMD128 */
 
 /* Define to enable generic (gcc) 256-bit SIMD optimizations. */
-#define HAVE_GENERIC_SIMD256 1
+/* #undef HAVE_GENERIC_SIMD256 */
 
 /* Define to 1 if you have the `gethrtime' function. */
 /* #undef HAVE_GETHRTIME */
@@ -226,7 +226,7 @@
 /* #undef HAVE_NEON */
 
 /* Define if OpenMP is enabled */
-#define HAVE_OPENMP 1
+/* #undef HAVE_OPENMP */
 
 /* Define to 1 if you have the `posix_memalign' function. */
 #define HAVE_POSIX_MEMALIGN 1

@@ -2,6 +2,9 @@ cmake_minimum_required(VERSION 3.10)
 project(FastKCF)
 set(CMAKE_CXX_STANDARD 20)
 
+file(GLOB_RECURSE sources CONFIGURE_DEPENDS "src/*.cpp")
+file(GLOB_RECURSE cuda_sources CONFIGURE_DEPENDS "src/*.cu")
+
 find_package(OpenCV REQUIRED)
 find_package(OpenMP REQUIRED)
 
@@ -51,5 +54,5 @@ include_directories(kcfDetect PUBLIC
 add_definitions(-DTRACY_ENABLE)
 add_definitions(-DTRACY_NO_INVARIANT_CHECK=1 -DTRACY_TIMER_FALLBACK)
 
-add_executable(kcfDetect main.cpp fastTracker.cpp fastTrackerMP.cpp fastTrackerCUDA.cpp fastTrackerMPCUDA.cpp extern/tracy/public/TracyClient.cpp utils.hpp)
+add_executable(kcfDetect main.cpp extern/tracy/public/TracyClient.cpp ${sources} ${cuda_sources} src/utils.hpp)
 target_link_libraries(kcfDetect PRIVATE ${OpenCV_LIBS} OpenMP::OpenMP_CXX ${VTK_LIBRARIES} PkgConfig::FFTW ${FFTW_DOUBLE_THREADS_LIB} OpenGL::GL ${CMAKE_DL_LIBS})

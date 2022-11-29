@@ -11,14 +11,20 @@
 #include <opencv2/videoio.hpp>
 #include <opencv2/tracking.hpp>
 
-#include "fastTracker.hpp"
-#include "fastTrackerMP.hpp"
-#include "fastTrackerCUDA.hpp"
-#include "fastTrackerMPCUDA.hpp"
+#include "src/fastTracker.hpp"
+#include "src/fastTrackerMP.hpp"
+#include "src/fastTrackerFFTW.hpp"
+#include "src/fastTrackerCUDA.hpp"
+#include "src/fastTrackerMPCUDA.hpp"
 
 #include "Tracy.hpp"
 
-#include "utils.hpp"
+#include "src/utils.hpp"
+
+
+void benchmark(){
+    
+}
 
 void test_fftw(){
     const int max_dim = 1000;
@@ -52,7 +58,7 @@ void test_fftw(){
             out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * src.rows * src.cols);
             
             // create fftw3 plan
-            fftw_plan plan = fftw_plan_dft_2d(src.rows, src.cols, in, out, FFTW_FORWARD, FFTW_EXHAUSTIVE);
+            fftw_plan plan = fftw_plan_dft_2d(src.rows, src.cols, in, out, FFTW_FORWARD, FFTW_PATIENT);
 
             for(int t = 0; t < 100; t++){
                 // time the fftw_execute call
@@ -145,6 +151,7 @@ bool checkBoxesEqual(std::string name, const cv::Rect& a, const cv::Rect& b, int
 }
 
 int main() {
+    benchmark();
     // test_fftw();
     // create a filesystem instance
     std::string path = "test/";
@@ -174,6 +181,7 @@ int main() {
         auto t = cv::TrackerKCF::create();
         auto tracker = cv::FastTracker::create();
         auto tracker_mp = cv::FastTrackerMP::create();
+        auto tracker_fftw = cv::FastTrackerFFTW::create();
         auto tracker_cuda = cv::FastTrackerCUDA::create();
         auto tracker_mp_cuda = cv::FastTrackerMPCUDA::create();
 
@@ -211,8 +219,9 @@ int main() {
 
                 updateTracker("BASE", tracker, output_file, frame, image, rect);
                 updateTracker("MP", tracker_mp, output_file, frame, image, rect);
-                //updateTracker("CUDA", tracker_cuda, output_file, frame, image, rect);
-                //updateTracker("MP_CUDA", tracker_mp_cuda, output_file, frame, image, rect);
+                updateTracker("FFTW", tracker_fftw, output_file, frame, image, rect);
+                updateTracker("CUDA", tracker_cuda, output_file, frame, image, rect);
+                updateTracker("MP_CUDA", tracker_mp_cuda, output_file, frame, image, rect);
             } else {
                 cv::Rect dummy{ 0,0,0,0 };
 
@@ -220,8 +229,13 @@ int main() {
 
                 auto [success, bb] = updateTracker("BASE", tracker, output_file, frame, image, dummy);
                 auto [success_bb, bb_mp] = updateTracker("MP", tracker_mp, output_file, frame, image, dummy);
-                //auto [success_cuda, bb_cuda] = updateTracker("CUDA", tracker_cuda, output_file, frame, image, dummy);
-                //auto [success_bb_cuda, bb_mp_cuda] = updateTracker("MP_CUDA", tracker_mp_cuda, output_file, frame, image, dummy);
+                auto [success_fftw, bb_fftw] = updateTracker("FFTW", tracker_fftw, output_file, frame, image, dummy);
+                auto [success_cuda, bb_cuda] = updateTracker("CUDA", tracker_cuda, output_file, frame, image, dummy);
+                auto [success_bb_cuda, bb_mp_cuda] = updateTracker("MP_CUDA", tracker_mp_cuda, output_file, frame, image, dummy);
+
+                if (frame == 1) {
+                    std::cout << "  All trackers updated successfully" << std::endl;
+                }
                 
                 if (!t_s) {
                     break;
@@ -231,12 +245,15 @@ int main() {
                 if (!checkBoxesEqual("MP", bb, bb_mp, frame)) {
                     break;
                 }
-                // if (!checkBoxesEqual("CUDA", bb, bb_cuda, frame)) {
-                //   break;
-                // }
-                //if (!checkBoxesEqual("MP_CUDA", bb, bb_mp_cuda, frame)) {
-                //    break;
-                //}
+                if (!checkBoxesEqual("FFTW", bb, bb_fftw, frame)) {
+                    break;
+                }
+                if (!checkBoxesEqual("CUDA", bb, bb_cuda, frame)) {
+                  break;
+                }
+                if (!checkBoxesEqual("MP_CUDA", bb, bb_mp_cuda, frame)) {
+                   break;
+                }
 
             }
 

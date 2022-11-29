@@ -223,8 +223,8 @@ AUTOMAKE = ${SHELL} '/home/jcdavis/FastKCF/extern/fftw-3.3.10/missing' automake-
 AVX2_CFLAGS = 
 AVX512_CFLAGS = 
 AVX_128_FMA_CFLAGS = 
-AVX_CFLAGS = -mavx
-AWK = mawk
+AVX_CFLAGS = 
+AWK = gawk
 CC = gcc
 CCDEPMODE = depmode=gcc3
 CFLAGS = -O3 -fomit-frame-pointer -mtune=native -malign-double -fstrict-aliasing -fno-schedule-insns
@@ -279,7 +279,7 @@ NMEDIT =
 OBJDUMP = objdump
 OBJEXT = o
 OCAMLBUILD = 
-OPENMP_CFLAGS = -fopenmp
+OPENMP_CFLAGS = 
 OTOOL = 
 OTOOL64 = 
 PACKAGE = fftw
@@ -368,10 +368,10 @@ BUILT_SOURCES = fftw-wisdom-to-conf fftw-wisdom.1
 EXTRA_DIST = fftw-wisdom-to-conf.in
 dist_man_MANS = fftw-wisdom-to-conf.1 fftw-wisdom.1
 EXTRA_MANS = fftw_wisdom.1.in
-fftw_wisdom_CFLAGS = $(OPENMP_CFLAGS)
+#fftw_wisdom_CFLAGS = $(OPENMP_CFLAGS)
 #fftw_wisdom_CFLAGS = $(PTHREAD_CFLAGS)
 #LIBFFTWTHREADS = $(top_builddir)/threads/libfftw3_threads.la
-LIBFFTWTHREADS = $(top_builddir)/threads/libfftw3_omp.la
+#LIBFFTWTHREADS = $(top_builddir)/threads/libfftw3_omp.la
 fftw_wisdom_SOURCES = fftw-wisdom.c
 fftw_wisdom_LDADD = $(top_builddir)/tests/bench-bench.o	\
 $(top_builddir)/tests/bench-fftw-bench.o $(LIBFFTWTHREADS)	\

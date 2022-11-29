@@ -1,9 +1,14 @@
-#include "fastTrackerMPCUDA.hpp"
+#include "fastTrackerCUDA.hpp"
 #include <complex>
 #include <cmath>
 #include "colorNames.hpp"
 
 #include <opencv2/imgproc.hpp> // INTER_LINEAR_EXACT
+#include <opencv2/core/cuda.hpp>
+#include <opencv2/cudaarithm.hpp>
+// include header for cuda dft 
+#include <opencv2/cudafeatures2d.hpp>
+
 
 namespace cv {
 //inline namespace tracking {
@@ -15,7 +20,7 @@ namespace cv {
 //    return std::make_shared<T>();
 //}
 
-  FastTrackerMPCUDA::FastTrackerMPCUDA(FastTrackerMPCUDA::Params p) :
+  FastTrackerCUDA::FastTrackerCUDA(FastTrackerCUDA::Params p) :
     params(p)
   {
     resizeImage = false;
@@ -30,8 +35,12 @@ namespace cv {
    * - creating a gaussian response for the training ground-truth
    * - perform FFT to the gaussian response
    */
-  void FastTrackerMPCUDA::init(InputArray image, const Rect& boundingBox)
+  void FastTrackerCUDA::init(InputArray image, const Rect& boundingBox)
   {
+    int device =cuda::getCudaEnabledDeviceCount();
+    int getD = cuda::getDevice();
+    cuda::setDevice(getD);
+
     frame=0;
     roi.x = cvRound(boundingBox.x);
     roi.y = cvRound(boundingBox.y);
@@ -89,7 +98,7 @@ namespace cv {
       params.desc_pca &= ~(CN);
       params.desc_npca &= ~(CN);
     }
-    //model = makePtr<FastTrackerMPCUDAModel>();
+    //model = makePtr<FastTrackerCUDAModel>();
 
     //std::cout << "Record the non-compressed descriptors" << std::endl;
     // record the non-compressed descriptors
@@ -121,12 +130,15 @@ namespace cv {
                      image.cols() / (resizeImage ? 2 : 1),
                      image.rows() / (resizeImage ? 2 : 1));
     CV_Assert(!(roi & image_roi).empty());
+
+    // setup OPENCV CUDA STUFF HERE
+
   }
 
   /*
    * Main part of the KCF algorithm
    */
-  bool FastTrackerMPCUDA::update(InputArray image, Rect& boundingBoxResult)
+  bool FastTrackerCUDA::update(InputArray image, Rect& boundingBoxResult)
   {
     double minVal, maxVal;	// min-max response
     Point minLoc,maxLoc;	// min-max location
@@ -341,7 +353,7 @@ namespace cv {
   /*
    * hann window filter
    */
-  void FastTrackerMPCUDA::createHanningWindow(OutputArray dest, const cv::Size winSize, const int type) const {
+  void FastTrackerCUDA::createHanningWindow(OutputArray dest, const cv::Size winSize, const int type) const {
       CV_Assert( type == CV_32FC1 || type == CV_64FC1 );
 
       dest.create(winSize, type);
@@ -380,38 +392,63 @@ namespace cv {
   /*
    * simplification of fourier transform function in opencv
    */
-  void inline FastTrackerMPCUDA::fft2(const Mat src, Mat & dest) const {
-    dft(src,dest,DFT_COMPLEX_OUTPUT);
+  void inline FastTrackerCUDA::fft2(const Mat src, Mat & dest) const {
+    // perform a dft using cuda on the src image and move to dest
+    cuda::GpuMat d_src, d_dest;
+    d_src.upload(src);
+    // flags acquired from 
+    // https://github.com/opencv/opencv_contrib/issues/2463
+    cuda::dft(d_src, d_dest, src.size(), DFT_ROWS + DFT_SCALE + DFT_INVERSE);
+    d_dest.download(dest);
+
+    //dft(src, dest, DFT_COMPLEX_OUTPUT);
   }
 
-  void inline FastTrackerMPCUDA::fft2(const Mat src, std::vector<Mat> & dest, std::vector<Mat> & layers_data) const {
+  void inline FastTrackerCUDA::fft2(const Mat src, std::vector<Mat> & dest, std::vector<Mat> & layers_data) const {
     split(src, layers_data);
 
     for(int i=0;i<src.channels();i++){
-      dft(layers_data[i],dest[i],DFT_COMPLEX_OUTPUT);
+      // // TODO, this is not on the gpu
+      // cuda::GpuMat s, d;
+      // s.upload(layers_data[i]);
+      // cuda::dft(s, d, layers_data[i].size());
+      // d.download(dest[i]);
+      // fft2(layers_data[i], dest[i]);
+      dft(layers_data[i],dest[i], DFT_COMPLEX_OUTPUT);
     }
   }
 
   /*
    * simplification of inverse fourier transform function in opencv
    */
-  void inline FastTrackerMPCUDA::ifft2(const Mat src, Mat & dest) const {
-    idft(src,dest,DFT_SCALE+DFT_REAL_OUTPUT);
+  void inline FastTrackerCUDA::ifft2(const Mat src, Mat & dest) const {
+    // idft(src,dest,DFT_SCALE+DFT_REAL_OUTPUT);
+    cuda::GpuMat d_src, d_dest;
+    d_src.upload(src);
+    cuda::dft(d_src, d_dest, src.size(), DFT_SCALE + DFT_REAL_OUTPUT + DFT_INVERSE);
+    d_dest.download(dest);
   }
 
   /*
    * Point-wise multiplication of two Multichannel Mat data
    */
-  void inline FastTrackerMPCUDA::pixelWiseMult(const std::vector<Mat> src1, const std::vector<Mat>  src2, std::vector<Mat>  & dest, const int flags, const bool conjB) const {
+  void inline FastTrackerCUDA::pixelWiseMult(const std::vector<Mat> src1, const std::vector<Mat>  src2, std::vector<Mat>  & dest, const int flags, const bool conjB) const {
+    cuda::GpuMat t1, t2, d;
     for(unsigned i=0;i<src1.size();i++){
-      mulSpectrums(src1[i], src2[i], dest[i],flags,conjB);
+      t1.upload(src1[i]);
+      t2.upload(src2[i]);
+      cuda::mulSpectrums(t1, t2, d, flags, conjB);
+      d.download(dest[i]);
     }
+    // for(unsigned i=0;i<src1.size();i++){
+    //   mulSpectrums(src1[i], src2[i], dest[i],flags,conjB);
+    // }
   }
 
   /*
    * Combines all channels in a multi-channels Mat data into a single channel
    */
-  void inline FastTrackerMPCUDA::sumChannels(std::vector<Mat> src, Mat & dest) const {
+  void inline FastTrackerCUDA::sumChannels(std::vector<Mat> src, Mat & dest) const {
     dest=src[0].clone();
     for(unsigned i=1;i<src.size();i++){
       dest+=src[i];
@@ -421,7 +458,7 @@ namespace cv {
   /*
    * obtains the projection matrix using PCA
    */
-  void inline FastTrackerMPCUDA::updateProjectionMatrix(const Mat src, Mat & old_cov,Mat &  proj_matrix, float pca_rate, int compressed_sz,
+  void inline FastTrackerCUDA::updateProjectionMatrix(const Mat src, Mat & old_cov,Mat &  proj_matrix, float pca_rate, int compressed_sz,
                                                      std::vector<Mat> & layers_pca,std::vector<Scalar> & average, Mat pca_data, Mat new_cov, Mat w, Mat u, Mat vt) {
     CV_Assert(compressed_sz<=src.channels());
 
@@ -437,6 +474,13 @@ namespace cv {
     pca_data=pca_data.reshape(1,src.rows*src.cols);
     
     new_cov=1.0/(float)(src.rows*src.cols-1)*(pca_data.t()*pca_data);
+    // const auto alpha = 1.0/(float)(src.rows*src.cols-1);
+    // cuda::GpuMat d_pca_data, t_d_pca_data, d_new_cov;
+    // d_pca_data.upload(pca_data);
+    // cuda::transpose(d_pca_data, t_d_pca_data);
+    // cuda::gemm(t_d_pca_data, d_pca_data, alpha, cuda::GpuMat(), 0, d_new_cov);
+    // d_new_cov.download(new_cov);
+
     if(old_cov.rows==0)old_cov=new_cov.clone();
 
     // calc PCA
@@ -451,21 +495,48 @@ namespace cv {
 
     // update the covariance matrix
     old_cov=(1.0-pca_rate)*old_cov+pca_rate*proj_matrix*proj_vars*proj_matrix.t();
+    // auto t = proj_matrix*proj_vars*proj_matrix.t();
+    // std::cout << old_cov.size() << std::endl;
+    // std::cout << t.size() << std::endl;
+    // const float c = (1.0 - pca_rate);
+    // cuda::GpuMat cold_cov, cproj_matrix, t_cproj_matrix, cproj_vars;
+    // cold_cov.upload(old_cov);
+    // // t_cproj_matrix.upload(proj_matrix.t());
+    // cproj_matrix.upload(proj_matrix);
+    // cproj_vars.upload(proj_vars);
+    // std::cout << "uploaded data" << std::endl;
+    // cuda::multiply(c, cold_cov, cold_cov);
+    // // cold_cov.convertTo(cold_cov, cold_cov.type(), c); // gpuMat = 1.5 * gpuMat
+    // std::cout << "multiplied cold_cov" << std::endl;
+    // cuda::transpose(cproj_matrix, t_cproj_matrix);
+    // cuda::multiply(pca_rate, cproj_matrix, cproj_matrix);
+    // std::cout << "multiplied cproj_matrix" << std::endl;
+    // cuda::gemm(cproj_matrix, proj_vars, 1.0, cuda::GpuMat(), 0.0, cproj_matrix);
+    // std::cout << "gemm cproj_matrix" << std::endl;
+    // cuda::gemm(cproj_vars, t_cproj_matrix, 1.0, cuda::GpuMat(), 0.0, cproj_matrix);
+    // std::cout << "gemm cold_cov" << std::endl;
+    // cuda::add(cold_cov, cproj_matrix, cold_cov);
+    // cold_cov.download(old_cov);
   }
 
   /*
    * compress the features
    */
-  void inline FastTrackerMPCUDA::compress(const Mat proj_matrix, const Mat src, Mat & dest, Mat & data, Mat & compressed) const {
+  void inline FastTrackerCUDA::compress(const Mat proj_matrix, const Mat src, Mat & dest, Mat & data, Mat & compressed) const {
     data=src.reshape(1,src.rows*src.cols);
     compressed=data*proj_matrix;
+    // cuda::GpuMat d_data, d_proj_matrix, d_compressed;
+    // d_data.upload(data);
+    // d_proj_matrix.upload(proj_matrix);
+    // cuda::gemm(d_data, d_proj_matrix, 1.0, cuda::GpuMat(), 0.0, d_compressed);
+    // d_compressed.download(compressed);
     dest=compressed.reshape(proj_matrix.cols,src.rows).clone();
   }
 
   /*
    * obtain the patch and apply hann window filter to it
    */
-  bool FastTrackerMPCUDA::getSubWindow(const Mat img, const Rect _roi, Mat& feat, Mat& patch, FastTrackerMPCUDA::MODE desc) const {
+  bool FastTrackerCUDA::getSubWindow(const Mat img, const Rect _roi, Mat& feat, Mat& patch, FastTrackerCUDA::MODE desc) const {
 
     Rect region=_roi;
 
@@ -523,7 +594,7 @@ namespace cv {
   /*
    * get feature using external function
    */
-  bool FastTrackerMPCUDA::getSubWindow(const Mat img, const Rect _roi, Mat& feat, void (*f)(const Mat, const Rect, Mat& )) const{
+  bool FastTrackerCUDA::getSubWindow(const Mat img, const Rect _roi, Mat& feat, void (*f)(const Mat, const Rect, Mat& )) const{
 
     // return false if roi is outside the image
     if((_roi.x+_roi.width<0)
@@ -554,7 +625,7 @@ namespace cv {
 
   /* Convert BGR to ColorNames
    */
-  void FastTrackerMPCUDA::extractCN(Mat patch_data, Mat & cnFeatures) const {
+  void FastTrackerCUDA::extractCN(Mat patch_data, Mat & cnFeatures) const {
     Vec3b & pixel = patch_data.at<Vec3b>(0,0);
     unsigned index;
 
@@ -578,7 +649,7 @@ namespace cv {
   /*
    *  dense gauss kernel function
    */
-  void FastTrackerMPCUDA::denseGaussKernel(const float sigma, const Mat x_data, const Mat y_data, Mat & k_data,
+  void FastTrackerCUDA::denseGaussKernel(const float sigma, const Mat x_data, const Mat y_data, Mat & k_data,
                                         std::vector<Mat> & layers_data,std::vector<Mat> & xf_data,std::vector<Mat> & yf_data, std::vector<Mat> xyf_v, Mat xy, Mat xyf ) const {
     double normX, normY;
 
@@ -620,7 +691,7 @@ namespace cv {
    * http://stackoverflow.com/questions/10420454/shift-like-matlab-function-rows-or-columns-of-a-matrix-in-opencv
    */
   // circular shift one row from up to down
-  void FastTrackerMPCUDA::shiftRows(Mat& mat) const {
+  void FastTrackerCUDA::shiftRows(Mat& mat) const {
 
       Mat temp;
       Mat m;
@@ -636,7 +707,7 @@ namespace cv {
   }
 
   // circular shift n rows from up to down if n > 0, -n rows from down to up if n < 0
-  void FastTrackerMPCUDA::shiftRows(Mat& mat, int n) const {
+  void FastTrackerCUDA::shiftRows(Mat& mat, int n) const {
       if( n < 0 ) {
         n = -n;
         flip(mat,mat,0);
@@ -652,7 +723,7 @@ namespace cv {
   }
 
   //circular shift n columns from left to right if n > 0, -n columns from right to left if n < 0
-  void FastTrackerMPCUDA::shiftCols(Mat& mat, int n) const {
+  void FastTrackerCUDA::shiftCols(Mat& mat, int n) const {
       if(n < 0){
         n = -n;
         flip(mat,mat,1);
@@ -670,7 +741,7 @@ namespace cv {
   /*
    * calculate the detection response
    */
-  void FastTrackerMPCUDA::calcResponse(const Mat alphaf_data, const Mat kf_data, Mat & response_data, Mat & spec_data) const {
+  void FastTrackerCUDA::calcResponse(const Mat alphaf_data, const Mat kf_data, Mat & response_data, Mat & spec_data) const {
     //alpha f--> 2channels ; k --> 1 channel;
     mulSpectrums(alphaf_data,kf_data,spec_data,0,false);
     ifft2(spec_data,response_data);
@@ -679,7 +750,7 @@ namespace cv {
   /*
    * calculate the detection response for splitted form
    */
-  void FastTrackerMPCUDA::calcResponse(const Mat alphaf_data, const Mat _alphaf_den, const Mat kf_data, Mat & response_data, Mat & spec_data, Mat & spec2_data) const {
+  void FastTrackerCUDA::calcResponse(const Mat alphaf_data, const Mat _alphaf_den, const Mat kf_data, Mat & response_data, Mat & spec_data, Mat & spec2_data) const {
 
     mulSpectrums(alphaf_data,kf_data,spec_data,0,false);
 
@@ -698,7 +769,7 @@ namespace cv {
     ifft2(spec2_data,response_data);
   }
 
-  void FastTrackerMPCUDA::setFeatureExtractor(void (*f)(const Mat, const Rect, Mat&), bool pca_func){
+  void FastTrackerCUDA::setFeatureExtractor(void (*f)(const Mat, const Rect, Mat&), bool pca_func){
     if(pca_func){
       extractor_pca.push_back(f);
       use_custom_extractor_pca = true;
@@ -709,7 +780,7 @@ namespace cv {
   }
   /*----------------------------------------------------------------------*/
 
-FastTrackerMPCUDA::Params::Params()
+FastTrackerCUDA::Params::Params()
 {
   detect_thresh = 0.5f;
   sigma=0.2f;

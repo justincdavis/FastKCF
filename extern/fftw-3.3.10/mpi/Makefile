@@ -283,8 +283,8 @@ AUTOMAKE = ${SHELL} '/home/jcdavis/FastKCF/extern/fftw-3.3.10/missing' automake-
 AVX2_CFLAGS = 
 AVX512_CFLAGS = 
 AVX_128_FMA_CFLAGS = 
-AVX_CFLAGS = -mavx
-AWK = mawk
+AVX_CFLAGS = 
+AWK = gawk
 CC = 
 CCDEPMODE = depmode=gcc3
 CFLAGS = -O3 -fomit-frame-pointer -mtune=native -malign-double -fstrict-aliasing -fno-schedule-insns
@@ -339,7 +339,7 @@ NMEDIT =
 OBJDUMP = objdump
 OBJEXT = o
 OCAMLBUILD = 
-OPENMP_CFLAGS = -fopenmp
+OPENMP_CFLAGS = 
 OTOOL = 
 OTOOL64 = 
 PACKAGE = fftw
@@ -441,10 +441,10 @@ SRC = any-true.c api.c block.c choose-radix.c conf.c dtensor.c fftw3-mpi.h ifftw
 libfftw3_mpi_la_SOURCES = $(SRC) $(TRANSPOSE_SRC) $(DFT_SRC) $(RDFT_SRC) $(RDFT2_SRC)
 libfftw3_mpi_la_LDFLAGS = -version-info 9:10:6
 libfftw3_mpi_la_LIBADD = ../libfftw3.la 
-mpi_bench_CFLAGS = $(OPENMP_CFLAGS)
+#mpi_bench_CFLAGS = $(OPENMP_CFLAGS)
 #mpi_bench_CFLAGS = $(PTHREAD_CFLAGS)
 #LIBFFTWTHREADS = $(top_builddir)/threads/libfftw3_threads.la
-LIBFFTWTHREADS = $(top_builddir)/threads/libfftw3_omp.la
+#LIBFFTWTHREADS = $(top_builddir)/threads/libfftw3_omp.la
 mpi_bench_SOURCES = mpi-bench.c $(top_srcdir)/tests/fftw-bench.c $(top_srcdir)/tests/hook.c
 mpi_bench_LDADD = libfftw3_mpi.la $(LIBFFTWTHREADS) $(top_builddir)/libfftw3.la $(top_builddir)/libbench2/libbench2.a $(MPILIBS) $(THREADLIBS)
 CHECK = $(top_srcdir)/tests/check.pl
@@ -1006,10 +1006,10 @@ uninstall-am: uninstall-includeHEADERS uninstall-libLTLIBRARIES \
 #	@echo "--------------------------------------------------------------"
 #	@echo "      MPI FFTW transforms passed "$(NUMCHECK)" tests, 4 CPUs"
 #	@echo "--------------------------------------------------------------"
-#	perl -w $(CHECK) $(CHECKOPTS) --mpi --nthreads=2 "$(MPIRUN) -np 3 `pwd`/mpi-bench"
-#	@echo "--------------------------------------------------------------"
-#	@echo "      MPI FFTW threaded transforms passed "$(NUMCHECK)" tests!"
-#	@echo "--------------------------------------------------------------"
+##	perl -w $(CHECK) $(CHECKOPTS) --mpi --nthreads=2 "$(MPIRUN) -np 3 `pwd`/mpi-bench"
+##	@echo "--------------------------------------------------------------"
+##	@echo "      MPI FFTW threaded transforms passed "$(NUMCHECK)" tests!"
+##	@echo "--------------------------------------------------------------"
 
 #bigcheck: mpi-bench$(EXEEXT)
 #	$(MAKE) $(AM_MAKEFLAGS) NUMCHECK=100 CHECKSIZE=60000 check-local

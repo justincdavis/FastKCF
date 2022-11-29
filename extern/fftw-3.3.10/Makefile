@@ -304,8 +304,8 @@ AUTOMAKE = ${SHELL} '/home/jcdavis/FastKCF/extern/fftw-3.3.10/missing' automake-
 AVX2_CFLAGS = 
 AVX512_CFLAGS = 
 AVX_128_FMA_CFLAGS = 
-AVX_CFLAGS = -mavx
-AWK = mawk
+AVX_CFLAGS = 
+AWK = gawk
 CC = gcc
 CCDEPMODE = depmode=gcc3
 CFLAGS = -O3 -fomit-frame-pointer -mtune=native -malign-double -fstrict-aliasing -fno-schedule-insns
@@ -360,7 +360,7 @@ NMEDIT =
 OBJDUMP = objdump
 OBJEXT = o
 OCAMLBUILD = 
-OPENMP_CFLAGS = -fopenmp
+OPENMP_CFLAGS = 
 OTOOL = 
 OTOOL64 = 
 PACKAGE = fftw
@@ -484,8 +484,8 @@ SIMD_LIBS = simd-support/libsimd_support.la
 #SSE2_LIBS = dft/simd/sse2/libdft_sse2_codelets.la	\
 #rdft/simd/sse2/librdft_sse2_codelets.la
 
-AVX_LIBS = dft/simd/avx/libdft_avx_codelets.la	\
-rdft/simd/avx/librdft_avx_codelets.la
+#AVX_LIBS = dft/simd/avx/libdft_avx_codelets.la	\
+#rdft/simd/avx/librdft_avx_codelets.la
 
 #AVX_128_FMA_LIBS = dft/simd/avx-128-fma/libdft_avx_128_fma_codelets.la \
 #rdft/simd/avx-128-fma/librdft_avx_128_fma_codelets.la
@@ -510,11 +510,11 @@ rdft/simd/avx/librdft_avx_codelets.la
 #NEON_LIBS = dft/simd/neon/libdft_neon_codelets.la	\
 #rdft/simd/neon/librdft_neon_codelets.la
 
-GENERIC_SIMD128_LIBS = dft/simd/generic-simd128/libdft_generic_simd128_codelets.la \
-rdft/simd/generic-simd128/librdft_generic_simd128_codelets.la
+#GENERIC_SIMD128_LIBS = dft/simd/generic-simd128/libdft_generic_simd128_codelets.la \
+#rdft/simd/generic-simd128/librdft_generic_simd128_codelets.la
 
-GENERIC_SIMD256_LIBS = dft/simd/generic-simd256/libdft_generic_simd256_codelets.la      \
-rdft/simd/generic-simd256/librdft_generic_simd256_codelets.la
+#GENERIC_SIMD256_LIBS = dft/simd/generic-simd256/libdft_generic_simd256_codelets.la      \
+#rdft/simd/generic-simd256/librdft_generic_simd256_codelets.la
 
 ##COMBINED_THREADLIBS = threads/libfftw3_threads.la
 libfftw3_la_SOURCES = 

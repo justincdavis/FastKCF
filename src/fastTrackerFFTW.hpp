@@ -14,7 +14,7 @@ namespace cv{
 //template <typename T>
 //using Ptr = std::shared_ptr<T>; 
 
-class FastTrackerMP
+class FastTrackerFFTW
 {
 public:
     struct Params {
@@ -30,8 +30,8 @@ public:
         bool compress_feature;        //!<  activate the pca method to compress the features
         int max_patch_size;           //!<  threshold for the ROI size
         int compressed_size;          //!<  feature size after compression
-        int desc_pca;        //!<  compressed descriptors of FastTrackerMP::MODE
-        int desc_npca;       //!<  non-compressed descriptors of FastTrackerMP::MODE
+        int desc_pca;        //!<  compressed descriptors of FastTrackerFFTW::MODE
+        int desc_npca;       //!<  non-compressed descriptors of FastTrackerFFTW::MODE
 
         Params();
     };
@@ -44,6 +44,7 @@ public:
 
 // IMPLEMENTATION laDETAILS
 private:
+    bool failed = false;
     bool failure();
 
     void createHanningWindow(OutputArray dest, const Size winSize, const int type) const;
@@ -57,11 +58,11 @@ private:
     void inline updateProjectionMatrix(const Mat src, Mat & old_cov,Mat &  proj_matrix,float pca_rate, int compressed_sz,
                                        std::vector<Mat> & layers_pca,std::vector<Scalar> & average, Mat pca_data, Mat new_cov, Mat w, Mat u, Mat v);
     void inline compress(const Mat proj_matrix, const Mat src, Mat & dest, Mat & data, Mat & compressed) const;
-    bool getSubWindow(const Mat img, const Rect roi, Mat& feat, Mat& patch, FastTrackerMP::MODE desc = GRAY) const;
+    bool getSubWindow(const Mat img, const Rect roi, Mat& feat, Mat& patch, FastTrackerFFTW::MODE desc = GRAY) const;
     bool getSubWindow(const Mat img, const Rect roi, Mat& feat, void (*f)(const Mat, const Rect, Mat& )) const;
     void extractCN(Mat patch_data, Mat & cnFeatures) const;
     void denseGaussKernel(const float sigma, const Mat , const Mat y_data, Mat & k_data,
-                          std::vector<Mat> & layers_data,std::vector<Mat> & xf_data,std::vector<Mat> & yf_data, std::vector<Mat> xyf_v, Mat xy, Mat xyf ) const;
+                          std::vector<Mat> & layers_data,std::vector<Mat> & xf_data,std::vector<Mat> & yf_data, std::vector<Mat> xyf_v, Mat xy, Mat xyf );
     void calcResponse(const Mat alphaf_data, const Mat kf_data, Mat & response_data, Mat & spec_data) const;
     void calcResponse(const Mat alphaf_data, const Mat alphaf_den_data, const Mat kf_data, Mat & response_data, Mat & spec_data, Mat & spec2_data) const;
 
@@ -117,8 +118,8 @@ private:
     int frame;
 
     // fftw stuff
-    void inline write_fftw_image(const Mat src, fftw_complex * dest, const int height, const int width) const;
-    void inline read_fftw_image(const fftw_complex * src, Mat & dest, Mat t1, Mat t2, const int height, const int width) const;
+    void inline write_fftw_image(const Mat src, fftw_complex * dest, const int height, const int width);
+    void inline read_fftw_image(const fftw_complex * src, Mat & dest, Mat & t1, Mat & t2, const int height, const int width);
 
     // forward fft
     fftw_complex *f_in;
@@ -134,19 +135,19 @@ private:
     fftw_complex *b_out;
     fftw_plan b_plan;
 
-    void inline fftw_fft2(const Mat src, std::vector<Mat> & dest, std::vector<Mat> & layers_data) const;
-    void inline fftw_fft2(const Mat src, Mat & dest) const;
-    void inline fftw_ifft2(const Mat src, Mat & dest) const;
+    void inline fftw_fft2(const Mat src, std::vector<Mat> & dest, std::vector<Mat> & layers_data);
+    void inline fftw_fft2(const Mat src, Mat & dest);
+    void inline fftw_ifft2(const Mat src, Mat & dest);
 ///////
 
 public:
-    FastTrackerMP(FastTrackerMP::Params p);  // use ::create()
+    FastTrackerFFTW(FastTrackerFFTW::Params p);  // use ::create()
     
     Params params;
 
-    static Ptr<FastTrackerMP> create() {
-        FastTrackerMP::Params p = FastTrackerMP::Params{};
-        return makePtr<FastTrackerMP>(p);
+    static Ptr<FastTrackerFFTW> create() {
+        FastTrackerFFTW::Params p = FastTrackerFFTW::Params{};
+        return makePtr<FastTrackerFFTW>(p);
     }
 
     void init(InputArray image, const Rect& boundingBox);
