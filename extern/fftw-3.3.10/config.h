@@ -23,7 +23,7 @@
 /* #undef C_ALLOCA */
 
 /* Define to disable Fortran wrappers. */
-/* #undef DISABLE_FORTRAN */
+#define DISABLE_FORTRAN 1
 
 /* Define to dummy `main' function (if any) required to link to the Fortran
    libraries. */
@@ -31,13 +31,13 @@
 
 /* Define to a macro mangling the given C identifier (in lower and upper
    case), which must not contain underscores, for linking with Fortran. */
-#define F77_FUNC(name,NAME) name ## _
+/* #undef F77_FUNC */
 
 /* As F77_FUNC, but for C identifiers containing underscores. */
-#define F77_FUNC_(name,NAME) name ## _
+/* #undef F77_FUNC_ */
 
 /* Define if F77_FUNC and F77_FUNC_ are equivalent. */
-#define F77_FUNC_EQUIV 1
+/* #undef F77_FUNC_EQUIV */
 
 /* Define if F77 and FC dummy `main' functions are identical. */
 /* #undef FC_DUMMY_MAIN_EQ_F77 */
@@ -286,7 +286,7 @@
 /* #undef HAVE_TANL */
 
 /* Define if we have a threads library. */
-/* #undef HAVE_THREADS */
+#define HAVE_THREADS 1
 
 /* Define to 1 if you have the `time_base_to_time' function. */
 /* #undef HAVE_TIME_BASE_TO_TIME */
@@ -394,7 +394,7 @@
 #define TIME_WITH_SYS_TIME 1
 
 /* Define if we have and are using POSIX threads. */
-/* #undef USING_POSIX_THREADS */
+#define USING_POSIX_THREADS 1
 
 /* Version number of package */
 #define VERSION "3.3.10"
@@ -404,7 +404,7 @@
 
 /* Include g77-compatible wrappers in addition to any other Fortran wrappers.
    */
-#define WITH_G77_WRAPPERS 1
+/* #undef WITH_G77_WRAPPERS */
 
 /* Use our own aligned malloc routine; mainly helpful for Windows systems
    lacking aligned allocation system-library routines. */

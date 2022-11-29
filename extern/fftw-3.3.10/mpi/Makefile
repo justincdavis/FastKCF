@@ -284,7 +284,7 @@ AVX2_CFLAGS =
 AVX512_CFLAGS = 
 AVX_128_FMA_CFLAGS = 
 AVX_CFLAGS = 
-AWK = gawk
+AWK = mawk
 CC = 
 CCDEPMODE = depmode=gcc3
 CFLAGS = -O3 -fomit-frame-pointer -mtune=native -malign-double -fstrict-aliasing -fno-schedule-insns
@@ -304,10 +304,10 @@ ECHO_N = -n
 ECHO_T = 
 EGREP = /usr/bin/grep -E
 EXEEXT = 
-F77 = f77
-FFLAGS = -g -O2
+F77 = 
+FFLAGS = 
 FGREP = /usr/bin/grep -F
-FLIBS =  -L/usr/lib/gcc/x86_64-linux-gnu/9 -L/usr/lib/gcc/x86_64-linux-gnu/9/../../../x86_64-linux-gnu -L/usr/lib/gcc/x86_64-linux-gnu/9/../../../../lib -L/lib/x86_64-linux-gnu -L/lib/../lib -L/usr/lib/x86_64-linux-gnu -L/usr/lib/../lib -L/usr/lib/gcc/x86_64-linux-gnu/9/../../.. -lgfortran -lm -lquadmath
+FLIBS = 
 GREP = /usr/bin/grep
 INDENT = 
 INSTALL = /usr/bin/install -c
@@ -353,8 +353,8 @@ PATH_SEPARATOR = :
 POW_LIB = 
 PRECISION = d
 PREC_SUFFIX = 
-PTHREAD_CC = 
-PTHREAD_CFLAGS = 
+PTHREAD_CC = gcc
+PTHREAD_CFLAGS = -pthread
 PTHREAD_LIBS = 
 RANLIB = ranlib
 SED = /usr/bin/sed
@@ -364,7 +364,7 @@ SHELL = /bin/bash
 SSE2_CFLAGS = 
 STACK_ALIGN_CFLAGS = 
 STRIP = strip
-THREADLIBS = 
+THREADLIBS =  
 VERSION = 3.3.10
 VSX_CFLAGS = 
 abs_builddir = /home/jcdavis/FastKCF/extern/fftw-3.3.10/mpi
@@ -374,7 +374,7 @@ abs_top_srcdir = /home/jcdavis/FastKCF/extern/fftw-3.3.10
 ac_ct_AR = ar
 ac_ct_CC = gcc
 ac_ct_DUMPBIN = 
-ac_ct_F77 = f77
+ac_ct_F77 = 
 acx_pthread_config = 
 am__include = include
 am__leading_dot = .
@@ -441,10 +441,10 @@ SRC = any-true.c api.c block.c choose-radix.c conf.c dtensor.c fftw3-mpi.h ifftw
 libfftw3_mpi_la_SOURCES = $(SRC) $(TRANSPOSE_SRC) $(DFT_SRC) $(RDFT_SRC) $(RDFT2_SRC)
 libfftw3_mpi_la_LDFLAGS = -version-info 9:10:6
 libfftw3_mpi_la_LIBADD = ../libfftw3.la 
-#mpi_bench_CFLAGS = $(OPENMP_CFLAGS)
-#mpi_bench_CFLAGS = $(PTHREAD_CFLAGS)
-#LIBFFTWTHREADS = $(top_builddir)/threads/libfftw3_threads.la
-#LIBFFTWTHREADS = $(top_builddir)/threads/libfftw3_omp.la
+##mpi_bench_CFLAGS = $(OPENMP_CFLAGS)
+mpi_bench_CFLAGS = $(PTHREAD_CFLAGS)
+LIBFFTWTHREADS = $(top_builddir)/threads/libfftw3_threads.la
+##LIBFFTWTHREADS = $(top_builddir)/threads/libfftw3_omp.la
 mpi_bench_SOURCES = mpi-bench.c $(top_srcdir)/tests/fftw-bench.c $(top_srcdir)/tests/hook.c
 mpi_bench_LDADD = libfftw3_mpi.la $(LIBFFTWTHREADS) $(top_builddir)/libfftw3.la $(top_builddir)/libbench2/libbench2.a $(MPILIBS) $(THREADLIBS)
 CHECK = $(top_srcdir)/tests/check.pl
@@ -1006,10 +1006,10 @@ uninstall-am: uninstall-includeHEADERS uninstall-libLTLIBRARIES \
 #	@echo "--------------------------------------------------------------"
 #	@echo "      MPI FFTW transforms passed "$(NUMCHECK)" tests, 4 CPUs"
 #	@echo "--------------------------------------------------------------"
-##	perl -w $(CHECK) $(CHECKOPTS) --mpi --nthreads=2 "$(MPIRUN) -np 3 `pwd`/mpi-bench"
-##	@echo "--------------------------------------------------------------"
-##	@echo "      MPI FFTW threaded transforms passed "$(NUMCHECK)" tests!"
-##	@echo "--------------------------------------------------------------"
+#	perl -w $(CHECK) $(CHECKOPTS) --mpi --nthreads=2 "$(MPIRUN) -np 3 `pwd`/mpi-bench"
+#	@echo "--------------------------------------------------------------"
+#	@echo "      MPI FFTW threaded transforms passed "$(NUMCHECK)" tests!"
+#	@echo "--------------------------------------------------------------"
 
 #bigcheck: mpi-bench$(EXEEXT)
 #	$(MAKE) $(AM_MAKEFLAGS) NUMCHECK=100 CHECKSIZE=60000 check-local

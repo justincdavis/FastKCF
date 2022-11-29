@@ -26,8 +26,8 @@ namespace cv {
   }
 
   bool FastTrackerMP::failure() {
-    // fftw_cleanup_threads();
-    // CLENAUP FFTW stuff
+    fftw_cleanup_threads();
+    fftw_cleanup();
     return false;
   }
 
@@ -58,6 +58,10 @@ namespace cv {
   void FastTrackerMP::init(InputArray image, const Rect& boundingBox)
   {
     ZoneScopedN("ftmp init");
+
+    // enable fftw threads
+    fftw_init_threads();
+    fftw_plan_with_nthreads(omp_get_max_threads());
 
     frame=0;
     roi.x = cvRound(boundingBox.x);
@@ -109,12 +113,17 @@ namespace cv {
 
     //std::cout << "Run cv::exp" << std::endl;
     //y*=(float)output_sigma;
+    
+    // can move into above loop?
     parallelElementWiseMult(y, output_sigma, 10);
+
     cv::exp(y,y);
 
     //std::cout << "Perform fft2" << std::endl;
     // perform fourier transfor to the gaussian response
-    fft2(y,yf);
+
+    naive_fftw_fft2(y,yf);
+    // fft2(y, yf);
 
     //std::cout << "Disable ColorNames for grayscale images" << std::endl;
     if (image.channels() == 1) { // disable CN for grayscale images
@@ -439,8 +448,7 @@ namespace cv {
   }
 
   void inline FastTrackerMP::fftw_fft2(const Mat src, Mat & dest) const {
-    // https://codereview.stackexchange.com/questions/181777/performing-fftw-double2-on-images-of-type-cvmat
-    // TODO
+    fftw_fft2(src, dest);
   }
 
   void inline FastTrackerMP::fft2(const Mat src, std::vector<Mat> & dest, std::vector<Mat> & layers_data) const {

@@ -120,6 +120,11 @@ int main() {
             if (image.empty())
                 break;
 
+            // // test the fftw call
+            // cv::Mat dummy;
+            // dummy = image.clone();
+            // fftw_fft2(image, dummy);
+
             if (frame == 0) {
                 // read a cv::Rect from a text file with the format x,y,w,h
                 // trim off the file and get the directory

@@ -116,10 +116,10 @@ private:
 
     int frame;
 
-    // fftw stuff
-    fftw_complex *data_in;
-    fftw_complex *fft_out;   
-    fftwf_plan plan_forward;
+    // // fftw stuff
+    // fftw_complex *data_in;
+    // fftw_complex *fft_out;   
+    // fftwf_plan plan_forward;
 
     void inline fftw_fft2(const Mat src, std::vector<Mat> & dest, std::vector<Mat> & layers_data) const;
     void inline fftw_fft2(const Mat src, Mat & dest) const;
@@ -132,10 +132,6 @@ public:
     Params params;
 
     static Ptr<FastTrackerMP> create() {
-        // do fftw allocations here
-        fftw_init_threads();
-        fftw_plan_with_nthreads(omp_get_max_threads());
-
         FastTrackerMP::Params p = FastTrackerMP::Params{};
         return makePtr<FastTrackerMP>(p);
     }
