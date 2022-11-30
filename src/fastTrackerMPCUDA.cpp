@@ -454,7 +454,7 @@ namespace cv {
       d_src.upload(src);
       // flags acquired from 
       // https://github.com/opencv/opencv_contrib/issues/2463
-      cuda::dft(d_src, d_dest, src.size(), 0);
+      cuda::dft(d_src, d_dest, src.size(), DFT_SCALE);
       d_dest.download(dest);
     }
   }

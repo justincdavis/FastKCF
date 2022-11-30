@@ -1,6 +1,5 @@
 build/
 *.avi
-data/
 .vscode
 
 # Prerequisites
