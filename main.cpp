@@ -8,6 +8,7 @@
 #include <functional>
 #include <numeric>
 
+#include <opencv2/imgcodecs.hpp>
 #include <opencv2/videoio.hpp>
 #include <opencv2/tracking.hpp>
 
@@ -21,75 +22,88 @@
 
 #include "src/utils.hpp"
 
+// #include <fftw3.h>
+// void test_fftw(){
+//     auto s = fftw_import_system_wisdom();
+//     s = fftw_import_wisdom_from_filename("wisdom");
 
-void benchmark(){
-    
-}
+//     const int max_dim = 110;
+//     const int min_dim = 100;
 
-void test_fftw(){
-    const int max_dim = 1000;
-    const int min_dim = 100;
+//     std::vector<double> fftw_times_o;
+//     std::vector<double> opencv_times_o;
 
-    for(int h = min_dim; h < max_dim; h++){
-        for(int w = min_dim; w < max_dim; w++){
-            auto height = h;
-            auto width = w;
-            // vector of times
-            std::vector<double> fftw_times;
-            std::vector<double> cv_times;
-            cv::Mat y = cv::Mat::zeros((int)height,(int)width,CV_32F);
+//     for(int h = min_dim; h < max_dim; h++){
+//         for(int w = min_dim; w < max_dim; w++){
+//             auto height = h;
+//             auto width = w;
+//             // vector of times
+//             std::vector<double> fftw_times;
+//             std::vector<double> cv_times;
+//             cv::Mat y = cv::Mat::zeros((int)height,(int)width,CV_32F);
 
-            const float half_height = height/2;
-            const float half_width = width/2;
-            #pragma omp parallel for
-            for(int i=0;i<int(height);i++){
-            for(int j=0;j<int(width);j++){
-                y.at<float>(i,j) =
-                        static_cast<float>((i-half_height+1)*(i-half_height+1)+(j-half_width+1)*(j-half_width+1));
-            }
-            }
-            auto src = y;
-            auto dst = src.clone();
-            fftw_init_threads();
-            fftw_plan_with_nthreads(omp_get_max_threads());
-            // create fftw3 image
-            fftw_complex *in, *out;
-            in = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * src.rows * src.cols);
-            out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * src.rows * src.cols);
+//             const float half_height = height/2;
+//             const float half_width = width/2;
+//             #pragma omp parallel for
+//             for(int i=0;i<int(height);i++){
+//             for(int j=0;j<int(width);j++){
+//                 y.at<float>(i,j) =
+//                         static_cast<float>((i-half_height+1)*(i-half_height+1)+(j-half_width+1)*(j-half_width+1));
+//             }
+//             }
+
+//             auto src = y;
+//             auto dst = src.clone();
+//             fftw_init_threads();
+//             fftw_plan_with_nthreads(omp_get_max_threads());
+//             // create fftw3 image
+//             fftw_complex *in, *out;
+//             in = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * src.rows * src.cols);
+//             out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * src.rows * src.cols);
             
-            // create fftw3 plan
-            fftw_plan plan = fftw_plan_dft_2d(src.rows, src.cols, in, out, FFTW_FORWARD, FFTW_PATIENT);
+//             // create fftw3 plan
+//             fftw_plan plan = fftw_plan_dft_2d(src.rows, src.cols, in, out, FFTW_FORWARD, FFTW_MEASURE);
 
-            for(int t = 0; t < 100; t++){
-                // time the fftw_execute call
-                createFFTW3Image(src, in);
-                auto start = std::chrono::high_resolution_clock::now();
-                fftw_execute(plan);
-                auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() - start).count();
-                fftw_times.push_back(duration);
+//             for(int t = 0; t < 100; t++){
+//                 // time the fftw_execute call
+//                 createFFTW3Image(src, in);
+//                 auto start = std::chrono::high_resolution_clock::now();
+//                 fftw_execute(plan);
+//                 auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() - start).count();
+//                 fftw_times.push_back(duration);
 
-                // time the cv::dft call
-                start = std::chrono::high_resolution_clock::now();
-                cv::dft(src, dst);
-                duration = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() - start).count();
-                cv_times.push_back(duration);
-            }
+//                 // time the cv::dft call
+//                 start = std::chrono::high_resolution_clock::now();
+//                 cv::dft(src, dst);
+//                 duration = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() - start).count();
+//                 cv_times.push_back(duration);
+//             }
 
-            // free memory
-            fftw_destroy_plan(plan);
-            fftw_free(in);
-            fftw_free(out);
+//             // free memory
+//             fftw_destroy_plan(plan);
+//             fftw_free(in);
+//             fftw_free(out);
 
-            // compare averages of fftw_times and cv_times
-            double fftw_avg = std::accumulate(fftw_times.begin(), fftw_times.end(), 0.0) / fftw_times.size();
-            double cv_avg = std::accumulate(cv_times.begin(), cv_times.end(), 0.0) / cv_times.size();
-            std::cout << "Computing for size: " << h << " x " << w << std::endl;
-            std::cout << "  FFTW avg: " << fftw_avg << "ms" << std::endl;
-            std::cout << "  CV avg:   " << cv_avg << "ms" << std::endl;
-            std::cout << "  FFTW is " << cv_avg / fftw_avg << " times faster than CV" << std::endl;
-        }
-    }
-}
+//             // compare averages of fftw_times and cv_times
+//             double fftw_avg = std::accumulate(fftw_times.begin(), fftw_times.end(), 0.0) / fftw_times.size();
+//             double cv_avg = std::accumulate(cv_times.begin(), cv_times.end(), 0.0) / cv_times.size();
+//             std::cout << "Computing for size: " << h << " x " << w << std::endl;
+//             std::cout << "    FFTW avg: " << fftw_avg << "ms" << std::endl;
+//             std::cout << "    CV avg:   " << cv_avg << "ms" << std::endl;
+//             std::cout << "    FFTW is " << cv_avg / fftw_avg << " times faster than CV" << std::endl;
+
+//             fftw_times_o.push_back(fftw_avg);
+//             opencv_times_o.push_back(cv_avg);
+//         }
+//     }
+
+//     // compare overall averages
+//     double fftw_avg = std::accumulate(fftw_times_o.begin(), fftw_times_o.end(), 0.0) / fftw_times_o.size();
+//     double cv_avg = std::accumulate(opencv_times_o.begin(), opencv_times_o.end(), 0.0) / opencv_times_o.size();
+//     std::cout << "Overall FFTW avg: " << fftw_avg << "ms" << std::endl;
+//     std::cout << "Overall CV avg:   " << cv_avg << "ms" << std::endl;
+//     std::cout << "Overall FFTW is " << cv_avg / fftw_avg << " times faster than CV" << std::endl;
+// }
 
 std::vector<int> getBoundingBox(std::string file){
     std::ifstream truth(file);
@@ -150,6 +164,92 @@ bool checkBoxesEqual(std::string name, const cv::Rect& a, const cv::Rect& b, int
     return equal;
 }
 
+void benchmark(){
+    int n = 700;
+    int s = 10;
+    int o = 10;
+    bool display = false;
+    cv::Mat image = cv::imread("test/test.jpg");
+    std::cout << "Image size: " << image.size() << std::endl;
+
+    for(int i = s; i < n; i += o) {
+        int x = 500;
+        int y = 500;
+        int w = i;
+        int h = i;
+        int boxSize = i * i;
+        cv::Rect rect(x, y, w, h);
+        printCVRect(std::cout, rect);
+
+        std::ofstream output_file;
+        output_file.open("data/benchmarking/" + std::to_string(i) + "x" + std::to_string(i) + ".txt");
+
+        output_file << "BBOX_SIZE:" << boxSize << "\n";
+
+        auto t = cv::TrackerKCF::create();
+        auto tracker = cv::FastTracker::create();
+        auto tracker_mp = cv::FastTrackerMP::create();
+        auto tracker_fftw = cv::FastTrackerFFTW::create();
+        auto tracker_cuda = cv::FastTrackerCUDA::create();
+        auto tracker_mp_cuda = cv::FastTrackerMPCUDA::create();
+
+        for(int j = 0; j < 100; j++){
+            int frame = j;
+            std::cout << "Frame: " << frame << std::endl;
+            cv::Rect dummy{0, 0, 0, 0};
+            if (j == 0){
+                updateTracker("KCF", t, output_file, frame, image, rect);
+                if (display) std::cout << "  Init KCF" << std::endl;
+                updateTracker("BASE", tracker, output_file, frame, image, rect);
+                if (display) std::cout << "  Init BASE" << std::endl;
+                updateTracker("MP", tracker_mp, output_file, frame, image, rect);
+                if (display) std::cout << "  Init MP" << std::endl;
+                updateTracker("FFTW", tracker_fftw, output_file, frame, image, rect);
+                if (display) std::cout << "Init FFTW" << std::endl;
+                updateTracker("CUDA", tracker_cuda, output_file, frame, image, rect);
+                if (display) std::cout << "  Init CUDA" << std::endl;
+                updateTracker("MP_CUDA", tracker_mp_cuda, output_file, frame, image, rect);
+                if (display) std::cout << "  Init MP_CUDA" << std::endl;
+            }
+            else{
+                auto [success_cv, result_cv] = updateTracker("KCF", t, output_file, frame, image, dummy);
+                if (display) std::cout << "  Update KCF: " << success_cv << std::endl;
+                auto [success, bb] = updateTracker("BASE", tracker, output_file, frame, image, dummy);
+                if (display) std::cout << "  Update BASE: " << success << std::endl;
+                auto [success_bb, bb_mp] = updateTracker("MP", tracker_mp, output_file, frame, image, dummy);
+                if (display) std::cout << "  Update MP: " << success_bb << std::endl;
+                auto [success_fftw, bb_fftw] = updateTracker("FFTW", tracker_fftw, output_file, frame, image, dummy);
+                if (display) std::cout << "  Update FFTW: " << success_fftw << std::endl;
+                auto [success_cuda, bb_cuda] = updateTracker("CUDA", tracker_cuda, output_file, frame, image, dummy);
+                if (display) std::cout << "  Update CUDA: " << success_cuda << std::endl;
+                auto [success_bb_cuda, bb_mp_cuda] = updateTracker("MP_CUDA", tracker_mp_cuda, output_file, frame, image, dummy);
+                if (display) std::cout << "  Update MP_CUDA: " << success_bb_cuda << std::endl;
+
+                if (!success_cv) {
+                    break;
+                }
+
+                // compare the bounding boxes
+                if (!checkBoxesEqual("BASE", result_cv, bb, frame)) {
+                    updateTracker("BASE", tracker, output_file, 0, image, result_cv);
+                }
+                if (!checkBoxesEqual("MP", result_cv, bb_mp, frame)) {
+                    updateTracker("MP", tracker_mp, output_file, 0, image, result_cv);
+                }
+                if (!checkBoxesEqual("FFTW", bb, bb_fftw, frame)) {
+                    updateTracker("FFTW", tracker_fftw, output_file, 0, image, bb);
+                }
+                if (!checkBoxesEqual("CUDA", result_cv, bb_cuda, frame)) {
+                    updateTracker("CUDA", tracker_cuda, output_file, 0, image, result_cv);
+                }
+                if (!checkBoxesEqual("MP_CUDA", result_cv, bb_mp_cuda, frame)) {
+                    updateTracker("MP_CUDA", tracker_mp_cuda, output_file, 0, image, result_cv);
+                }
+            }
+        }
+    }
+}
+
 int main() {
     benchmark();
     // test_fftw();
@@ -176,7 +276,7 @@ int main() {
 
         // create a file to store the results
         std::ofstream output_file;
-        output_file.open("data/" + path.stem().string() + ".txt");
+        output_file.open("data/got10k/" + path.stem().string() + ".txt");
 
         auto t = cv::TrackerKCF::create();
         auto tracker = cv::FastTracker::create();

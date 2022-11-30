@@ -5,7 +5,7 @@
 #include <memory>
 #include <iostream>
 #include <omp.h>
-#include <fftw3.h>
+// #include <fftw3.h>
 
 #include "utils.hpp"
 
@@ -61,7 +61,7 @@ private:
     bool getSubWindow(const Mat img, const Rect roi, Mat& feat, void (*f)(const Mat, const Rect, Mat& )) const;
     void extractCN(Mat patch_data, Mat & cnFeatures) const;
     void denseGaussKernel(const float sigma, const Mat , const Mat y_data, Mat & k_data,
-                          std::vector<Mat> & layers_data,std::vector<Mat> & xf_data,std::vector<Mat> & yf_data, std::vector<Mat> xyf_v, Mat xy, Mat xyf );
+                          std::vector<Mat> & layers_data,std::vector<Mat> & xf_data,std::vector<Mat> & yf_data, std::vector<Mat> xyf_v, Mat xy, Mat xyf ) const;
     void calcResponse(const Mat alphaf_data, const Mat kf_data, Mat & response_data, Mat & spec_data) const;
     void calcResponse(const Mat alphaf_data, const Mat alphaf_den_data, const Mat kf_data, Mat & response_data, Mat & spec_data, Mat & spec2_data) const;
 
@@ -115,28 +115,6 @@ private:
     bool resizeImage; // resize the image whenever needed and the patch size is large
 
     int frame;
-
-    // fftw stuff
-    void inline write_fftw_image(const Mat src, fftw_complex * dest, const int height, const int width);
-    void inline read_fftw_image(const fftw_complex * src, Mat & dest, Mat & t1, Mat & t2, const int height, const int width);
-
-    // forward fft
-    fftw_complex *f_in;
-    fftw_complex *f_out;
-    cv::Mat c1;
-    cv::Mat c2;
-    int f_h;
-    int f_w;   
-    fftw_plan f_plan;
-
-    // backward fft
-    fftw_complex *b_in;
-    fftw_complex *b_out;
-    fftw_plan b_plan;
-
-    void inline fftw_fft2(const Mat src, std::vector<Mat> & dest, std::vector<Mat> & layers_data);
-    void inline fftw_fft2(const Mat src, Mat & dest);
-    void inline fftw_ifft2(const Mat src, Mat & dest);
 ///////
 
 public:

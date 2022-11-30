@@ -5,9 +5,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
+DIRECTORY='data/got10k'
+
 def load_data_files():
     # using os.walk
-    for root, _, files in os.walk('data'):
+    for root, _, files in os.walk(DIRECTORY):
         for file in files:
             if file.endswith('.txt'):
                 yield os.path.join(root, file)

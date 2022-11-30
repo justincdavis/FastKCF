@@ -398,10 +398,10 @@ namespace cv {
     d_src.upload(src);
     // flags acquired from 
     // https://github.com/opencv/opencv_contrib/issues/2463
-    cuda::dft(d_src, d_dest, src.size(), DFT_ROWS + DFT_SCALE + DFT_INVERSE);
+    cuda::dft(d_src, d_dest, d_src.size(), 0);
     d_dest.download(dest);
 
-    //dft(src, dest, DFT_COMPLEX_OUTPUT);
+    // dft(src, dest, DFT_COMPLEX_OUTPUT);
   }
 
   void inline FastTrackerCUDA::fft2(const Mat src, std::vector<Mat> & dest, std::vector<Mat> & layers_data) const {
@@ -422,11 +422,23 @@ namespace cv {
    * simplification of inverse fourier transform function in opencv
    */
   void inline FastTrackerCUDA::ifft2(const Mat src, Mat & dest) const {
-    // idft(src,dest,DFT_SCALE+DFT_REAL_OUTPUT);
-    cuda::GpuMat d_src, d_dest;
-    d_src.upload(src);
-    cuda::dft(d_src, d_dest, src.size(), DFT_SCALE + DFT_REAL_OUTPUT + DFT_INVERSE);
-    d_dest.download(dest);
+    idft(src,dest,DFT_SCALE+DFT_REAL_OUTPUT);
+    
+    // cuda::GpuMat d_src, d_dest;
+    // d_src.upload(src);
+    // cuda::dft(d_src, d_dest, src.size(), DFT_INVERSE);
+    // d_dest.download(dest);
+
+    // cuda::GpuMat src_cce, dest_cce;
+    // src_cce.upload(src);
+    // // The size correection is necessary to account for the CCE format
+    // cv::Size dest_size((src.size().width -1)*2,src.size().height);
+
+
+    // cuda::dft(src_cce, dest_cce, dest_size,
+    //      (DFT_SCALE + DFT_REAL_OUTPUT) | DFT_INVERSE);
+
+    // dest_cce.download(dest);
   }
 
   /*

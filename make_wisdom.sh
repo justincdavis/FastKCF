@@ -4,17 +4,20 @@
 
 # have two nested for loops going from 10 to N
 # where N is the largest dimensions of the FFTs you will be doing
-for j in {10..250000}
+for (( i=100; i<=110; i++ ))
 do
-#    for k in {10..1000}
-#    do
-        for i in o i
+   for (( j=100; j<=110; j++ ))
+   do
+        for k in o
         do
             # run the FFTW3 wisdom generator
             # and redirect the output to a file
             # this will take a while
             # fftw-wisdom -T 4 -v -o "wisdom" "c${i}f${j}x${k}"
-            fftw-wisdom -T 4 -v -w "wisdom" -o "wisdom" "c${i}f${j}"
+            area=`expr $i \* $j`
+            n="c${k}f${area}"
+            # echo $n
+            fftw-wisdom -T 4 -v -o "wisdom" "${n}"
         done
-#    done
+   done
 done

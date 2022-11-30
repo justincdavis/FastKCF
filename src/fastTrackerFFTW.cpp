@@ -78,15 +78,9 @@ namespace cv {
     fftw_init_threads();
     fftw_plan_with_nthreads(omp_get_max_threads());
 
-    // // import wisdom
-    // int success = fftw_import_system_wisdom();
-    // // if (success == 0) {
-    // //   std::cerr << "WARNING: FFTW system wisdom import failed" << std::endl;
-    // // }
-    // success = fftw_import_wisdom_from_filename("wisdom");
-    // if (success == 0) {
-    //   std::cerr << "WARNING: FFTW local wisdom import failed" << std::endl;
-    // }
+    // import wisdom
+    fftw_import_system_wisdom();
+    fftw_import_wisdom_from_filename("wisdom");
 
     // generate fftw plan
     f_in = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * roi.width * roi.height);
@@ -150,8 +144,8 @@ namespace cv {
     //std::cout << "Perform fft2" << std::endl;
     // perform fourier transfor to the gaussian response
 
-    // naive_fftw_fft2(y,yf);
-    fft2(y, yf);
+    fftw_fft2(y,yf);
+    // fft2(y, yf);
 
     //std::cout << "Disable ColorNames for grayscale images" << std::endl;
     if (image.channels() == 1) { // disable CN for grayscale images

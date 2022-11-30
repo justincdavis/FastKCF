@@ -26,8 +26,6 @@ namespace cv {
   }
 
   bool FastTrackerMPCUDA::failure() {
-    fftw_cleanup_threads();
-    fftw_cleanup();
     return false;
   }
 
@@ -67,29 +65,11 @@ namespace cv {
 
     // // print out the roi dimensions
     // std::cout << "ROI HEIGHT: " << roi.height << ", ROI WIDTH: " << roi.width << std::endl;
-
-    // // enable fftw threads
-    // fftw_init_threads();
-    // fftw_plan_with_nthreads(omp_get_max_threads());
-
-    // // // import wisdom
-    // // int success = fftw_import_system_wisdom();
-    // // // if (success == 0) {
-    // // //   std::cerr << "WARNING: FFTW system wisdom import failed" << std::endl;
-    // // // }
-    // // success = fftw_import_wisdom_from_filename("wisdom");
-    // // if (success == 0) {
-    // //   std::cerr << "WARNING: FFTW local wisdom import failed" << std::endl;
-    // // }
-
-    // // generate fftw plan
-    // f_in = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * roi.width * roi.height);
-    // f_out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * roi.width * roi.height);
-    // c1 = cv::Mat::zeros(roi.height, roi.width, CV_32FC1);
-    // c2 = cv::Mat::zeros(roi.height, roi.width, CV_32FC1);
-    // f_h = roi.height;
-    // f_w = roi.width;
-    // f_plan = fftw_plan_dft_2d(f_h, f_w, f_in, f_out, FFTW_FORWARD, FFTW_PATIENT);
+    if (roi.width * roi.height >= params.fft_thresh) {
+      use_cuda = true;
+    } else {
+      use_cuda = false;
+    }
 
     //calclulate output sigma
     output_sigma=std::sqrt(static_cast<float>(roi.width*roi.height))*params.output_sigma_factor;
@@ -144,7 +124,6 @@ namespace cv {
     //std::cout << "Perform fft2" << std::endl;
     // perform fourier transfor to the gaussian response
 
-    // naive_fftw_fft2(y,yf);
     fft2(y, yf);
 
     //std::cout << "Disable ColorNames for grayscale images" << std::endl;
@@ -274,7 +253,6 @@ namespace cv {
 
       // compute the fourier transform of the kernel
       fft2(k, kf);
-      // fftw_fft2(k,kf);
       if(frame==1)spec2=Mat_<Vec2f >(kf.rows, kf.cols);
 
       // calculate filter response
@@ -368,7 +346,6 @@ namespace cv {
 
     // compute the fourier transform of the kernel and add a small value
     fft2(k,kf);
-    // fftw_fft2(k,kf);
     kf_lambda=kf+params.lambda;
 
     {
@@ -464,111 +441,22 @@ namespace cv {
   }
 
   /*
-   * methods for reading and writing images to fftw format
-   */
-  void inline FastTrackerMPCUDA::write_fftw_image(const Mat src, fftw_complex * dest, const int height, const int width) {
-    ZoneScopedN("write_fftw_image");
-    // #pragma omp parallel for
-    // for(int j = 0 ; j < height ; j++ ) {
-    //   int k = j*width;
-    //   for(int i = 0 ; i < width ; i++ ) {
-    //     int l = k + i;
-    //     dest[l][0] = ( double )src.at<float>(j, i);
-    //     dest[l][1] = 0.0;
-    //   }
-    // }
-    const int area = height * width;
-    const int batch_size = 10;
-    #pragma omp parallel for
-    for(int idx = 0; idx < area; idx += batch_size){
-      for (int offset = 0; offset < batch_size; offset++) {
-            int h = idx + offset;
-            if (h > area) break;
-            int i = h / width;
-            int j = h % width;
-
-            dest[h][0] = ( double )src.at<float>(i, j);
-            dest[h][1] = 0.0;
-        }
-    }
-  }
-
-  // TODO, I actually do want to pass these by reference
-  void inline FastTrackerMPCUDA::read_fftw_image(const fftw_complex * src, Mat & dest, Mat & t1, Mat & t2, const int height, const int width) {
-    ZoneScopedN("read_fftw_image");
-    // normalize
-    const double c = (double)(height * width);
-    // for(int i = 0 ; i < dest.rows * dest.cols ; i++ ) {
-    //     src[i][0] /= c;
-    // }
-    // copy
-    // int k = 0;
-    // // #pragma omp parallel for shared(k)
-    // for(int j = 0 ; j < dest.rows ; j++ ) {
-    //     for(int i = 0 ; i < dest.cols ; i++ ) {
-    //         t1.at<float>(j, i) = src[k][0] / c;
-    //         k++;
-    //     }
-    // }
-    // k = 0;
-    // // #pragma omp parallel for shared(k)
-    // for(int j = 0 ; j < dest.rows ; j++ ) {
-    //     for(int i = 0 ; i < dest.cols ; i++ ) {
-    //         t2.at<float>(j, i) = src[k][1] / c;
-    //         k++;
-    //     }
-    // }
-    
-    // TODO can be much better
-    // this optimization reduced time by 10ms
-    const int area = height * width;
-    const int batch_size = 20;
-    #pragma omp parallel for
-    for(int idx = 0; idx < area; idx += batch_size){
-      int is[batch_size];
-      int js[batch_size];
-      int top = 0;
-      for (int offset = 0; offset < batch_size; offset++) {
-            int h = idx + offset;
-            if (h > area) break;
-            is[offset] = h / width;
-            js[offset] = h % width;
-            top = offset;
-      }
-      for (int x = 0; x < batch_size; x++) {
-        if (x > top) break;
-        t1.at<float>(is[x], js[x]) = src[idx+x][0] / c;
-      }
-      for (int x = 0; x < batch_size; x++) {
-        if (x > top) break;
-        t2.at<float>(is[x], js[x]) = src[idx+x][1] / c;
-      }
-    }
-
-    cv::merge(std::vector<cv::Mat>{t1, t2}, dest);
-  }
-
-  /*
    * simplification of fourier transform function in opencv
    */
   void inline FastTrackerMPCUDA::fft2(const Mat src, Mat & dest) const {
     ZoneScopedN("ftmp fft2");
-    // perform a dft using cuda on the src image and move to dest
-    cuda::GpuMat d_src, d_dest;
-    d_src.upload(src);
-    // flags acquired from 
-    // https://github.com/opencv/opencv_contrib/issues/2463
-    cuda::dft(d_src, d_dest, src.size(), DFT_ROWS + DFT_SCALE + DFT_INVERSE);
-    d_dest.download(dest);
-
-    //dft(src, dest, DFT_COMPLEX_OUTPUT);
-  }
-
-  void inline FastTrackerMPCUDA::fftw_fft2(const Mat src, Mat & dest) {
-    ZoneScopedN("ftmp fftw_fft2");
-    write_fftw_image(src, f_in, f_h, f_w);
-    fftw_execute(f_plan);
-    read_fftw_image(f_out, dest, c1, c2, f_h, f_w);
+    if (!use_cuda){
+      dft(src, dest, DFT_COMPLEX_OUTPUT);
+    }
+    else{
+      // perform a dft using cuda on the src image and move to dest
+      cuda::GpuMat d_src, d_dest;
+      d_src.upload(src);
+      // flags acquired from 
+      // https://github.com/opencv/opencv_contrib/issues/2463
+      cuda::dft(d_src, d_dest, src.size(), 0);
+      d_dest.download(dest);
+    }
   }
 
   void inline FastTrackerMPCUDA::fft2(const Mat src, std::vector<Mat> & dest, std::vector<Mat> & layers_data) const {
@@ -591,31 +479,21 @@ namespace cv {
     }
   }
 
-  void inline FastTrackerMPCUDA::fftw_fft2(const Mat src, std::vector<Mat> & dest, std::vector<Mat> & layers_data) {
-    ZoneScopedN("ftmp fftw_fft2");
-    split(src, layers_data);
-
-    for(int i=0;i<src.channels();i++){
-      write_fftw_image(layers_data[i], f_in, f_h, f_w);
-      fftw_execute(f_plan);
-      read_fftw_image(f_out, dest[i], c1, c2, f_h, f_w);
-    }
-  }
-
   /*
    * simplification of inverse fourier transform function in opencv
    */
   void inline FastTrackerMPCUDA::ifft2(const Mat src, Mat & dest) const {
     ZoneScopedN("ftmp ifft2");
-    // idft(src,dest,DFT_SCALE+DFT_REAL_OUTPUT);
-    cuda::GpuMat d_src, d_dest;
-    d_src.upload(src);
-    cuda::dft(d_src, d_dest, src.size(), DFT_SCALE + DFT_REAL_OUTPUT + DFT_INVERSE);
-    d_dest.download(dest);
-  }
-
-  void inline FastTrackerMPCUDA::fftw_ifft2(const Mat src, Mat & dest) {
-    // TODO
+    // if (src.size().area() < params.fft_thresh){
+    //   idft(src,dest,DFT_SCALE+DFT_REAL_OUTPUT);
+    // }
+    // else{
+    //   cuda::GpuMat d_src, d_dest;
+    //   d_src.upload(src);
+    //   cuda::dft(d_src, d_dest, src.size(), DFT_SCALE + DFT_REAL_OUTPUT + DFT_INVERSE);
+    //   d_dest.download(dest);
+    // }
+    idft(src,dest,DFT_SCALE+DFT_REAL_OUTPUT);
   }
 
   /*
@@ -623,8 +501,20 @@ namespace cv {
    */
   void inline FastTrackerMPCUDA::pixelWiseMult(const std::vector<Mat> src1, const std::vector<Mat>  src2, std::vector<Mat>  & dest, const int flags, const bool conjB) const {
     ZoneScopedN("ftmp pxWiseMult");
-    for(unsigned i=0;i<src1.size();i++){
-      mulSpectrums(src1[i], src2[i], dest[i],flags,conjB);
+    if (!use_cuda){
+      #pragma omp parallel for
+      for(unsigned i=0;i<src1.size();i++){
+        mulSpectrums(src1[i], src2[i], dest[i],flags,conjB);
+      }
+    }
+    else{
+      cuda::GpuMat t1, t2, d;
+      for(unsigned i=0;i<src1.size();i++){
+        t1.upload(src1[i]);
+        t2.upload(src2[i]);
+        cuda::mulSpectrums(t1, t2, d, flags, conjB);
+        d.download(dest[i]);
+      }
     }
   }
 
@@ -927,14 +817,12 @@ namespace cv {
    *  dense gauss kernel function
    */
   void FastTrackerMPCUDA::denseGaussKernel(const float sigma, const Mat x_data, const Mat y_data, Mat & k_data,
-                                        std::vector<Mat> & layers_data,std::vector<Mat> & xf_data,std::vector<Mat> & yf_data, std::vector<Mat> xyf_v, Mat xy, Mat xyf ) {
+                                        std::vector<Mat> & layers_data,std::vector<Mat> & xf_data,std::vector<Mat> & yf_data, std::vector<Mat> xyf_v, Mat xy, Mat xyf ) const {
     ZoneScopedN("ftmp denseGauss");
     double normX, normY;
 
     fft2(x_data,xf_data,layers_data);
     fft2(y_data,yf_data,layers_data);
-    // fftw_fft2(x_data,xf_data,layers_data);
-    // fftw_fft2(y_data,yf_data,layers_data);
 
     normX=norm(x_data);
     normX*=normX;
@@ -1109,6 +997,9 @@ FastTrackerMPCUDA::Params::Params()
   compress_feature=true;
   compressed_size=2;
   pca_learning_rate=0.15f;
+
+  // cuda fft
+  fft_thresh=10000;
 }
 
 } // namespace
