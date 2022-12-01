@@ -15,10 +15,12 @@ def load_data_files():
     for root, _, files in os.walk(DIRECTORY1):
         for file in files:
             if file.endswith('.txt'):
+                print("file: ", file)
                 files.append(os.path.join(root, file))
     for root, _, files in os.walk(DIRECTORY2):
         for file in files:
             if file.endswith('.txt'):
+                print("file: ", file)
                 files.append(os.path.join(root, file))
     for file in files:
         yield file
@@ -99,7 +101,7 @@ def plot_data(data, title, label, xlabel, ylabel):
     plt.title(title)
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
-    plt.show()
+    # plt.show()
 
     # save the plt 
     plt.savefig(f'graphs/{title.replace(" ", "")}.png')
@@ -118,7 +120,7 @@ def plot_multi_data(data, title, labels, xlabel, ylabel, colors):
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
     plt.legend()
-    plt.show()
+    # plt.show()
 
     # save the plt 
     plt.savefig(f'graphs/{title.replace(" ", "")}.png')
